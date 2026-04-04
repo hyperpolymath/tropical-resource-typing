@@ -1,0 +1,103 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= Tropical Resource Typing For Protocols — Show Me The Receipts
+:toc:
+:icons: font
+
+The README makes claims. This file backs them up.
+
+== A Theory of Resource Types for Protocol Verification
+
+[quote, README]
+____
+This project is licensed under the Mozilla Public License 2.0 (MPL-2.0). It is
+also part of the Palimpsest initiative, which explores collaborative and ethical
+approaches to layered contribution and provenance in open systems.
+____
+
+The repository is built around a single substantive artefact: the PDF
+`Tropical Resource Typing For Protocols.pdf`. The title references *tropical
+mathematics* (max-plus semiring algebra) applied to resource typing in
+communication protocols — a formal framework for tracking resource consumption
+(message counts, channel uses, session credits) with tropical semiring
+constraints that can be mechanically checked. This is related to the broader
+hyperpolymath work on session types, linear types (Ephapax), and formally
+verified protocol interfaces (Groove, Burble).
+https://en.wikipedia.org/wiki/Tropical_semiring[Tropical semiring],
+https://en.wikipedia.org/wiki/Session_type[Session types]
+
+**Caveat:** The repository is documentation-only at this stage. There is no
+executable proof assistant code, no Idris2/Coq mechanisation, and no test
+harness beyond `tests/validate.test.ts`. The `deno.json` and `deno.lock` suggest
+a Deno-based validation harness is planned but not yet populated. The README is
+minimal and does not summarise the PDF's claims.
+
+- Primary artefact: `Tropical Resource Typing For Protocols.pdf`
+- Validation harness: `tests/validate.test.ts`
+- Runtime config: `deno.json`
+
+== Validation Harness
+
+[quote, README]
+____
+(implicit — deno.json and tests/ directory)
+____
+
+`tests/validate.test.ts` is a Deno TypeScript test file providing a validation
+harness. It is the only executable code in the repository. Its purpose is to
+verify structural or schema properties of the PDF (metadata, section count,
+or extracted theorem statements) rather than mechanising the proofs themselves.
+`deno.json` and `deno.lock` define the Deno workspace.
+https://deno.com/[Deno runtime]
+
+**Caveat:** The test file exists but may be mostly scaffold at this stage.
+No CI workflow was present to run `deno test` automatically at the time of
+this writing.
+
+- Tests: `tests/validate.test.ts`
+- Deno config: `deno.json`, `deno.lock`
+
+== Position in the Type Theory Ecosystem
+
+[quote, README]
+____
+It is also part of the Palimpsest initiative, which explores collaborative and
+ethical approaches to layered contribution and provenance in open systems.
+____
+
+Tropical Resource Typing slots into the hyperpolymath type-theory stack between
+Ephapax (linear type enforcement in Rust), Groove (verified protocol ABI/FFI),
+and the planned formal-methods layer for Burble (distributed communication with
+session-type guarantees). Tropical semiring constraints provide a compositional
+accounting of resource bounds that complements affine/linear type disciplines.
+
+**Caveat:** The integration between this theoretical work and the executable
+repos (Ephapax, Groove, Burble) is aspirational. No FFI bindings or Idris2
+mechanisation exist yet.
+
+- Related repos: https://github.com/hyperpolymath/ephapax, https://github.com/hyperpolymath/groove, https://github.com/hyperpolymath/burble
+
+== Dogfooded Across The Account
+
+[cols="1,2"]
+|===
+| Technology | Also Used In
+
+| **Tropical/max-plus semiring** | Foundational theory; planned integration with https://github.com/hyperpolymath/ephapax (linear resource proofs)
+| **Session types** | https://github.com/hyperpolymath/groove (verified protocol ABI), https://github.com/hyperpolymath/burble (communication session types)
+| **Deno test harness** | https://github.com/hyperpolymath/session-sentinel, https://github.com/hyperpolymath/airborne-submarine-squadron
+| **Palimpsest initiative** | https://github.com/hyperpolymath/palimpsest-license
+|===
+
+== File Map
+
+[cols="1,2"]
+|===
+| Path | Proves
+
+| `Tropical Resource Typing For Protocols.pdf` | Primary research artefact: tropical semiring resource typing theory for protocol verification
+| `tests/validate.test.ts` | Deno-based validation harness for the PDF artefact
+| `deno.json` | Deno workspace configuration
+| `deno.lock` | Pinned dependency lock file
+| `.machine_readable/` | A2ML metadata files (state, ecosystem)
+| `LICENSE` | MPL-2.0 license text
+|===
