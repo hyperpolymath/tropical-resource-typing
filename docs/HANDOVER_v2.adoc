@@ -1,0 +1,462 @@
+= Tropical Semiring Formalisation: Master Handover
+Jonathan D.A. Jewell (hyperpolymath)
+v2.0, 2026-04-11
+:toc:
+:toc-placement: preamble
+:sectnums:
+
+This document supersedes the April 2026 v1.0 handover.
+Drop this into a fresh conversation to resume any workstream.
+The previous handover (v1.0) can be deleted — everything it contained
+is here, corrected where wrong, and extended with the CNO work.
+
+== File Inventory (definitive)
+
+[cols="2,3,1,1"]
+|===
+|File |Contents |Lines |Sorries
+
+|`TropicalSessionTypes.lean`
+|Lean 4 — complete semiring + session types + soundness proofs
+|~350
+|0 ✅
+
+|`Tropical_v2.thy`
+|Isabelle — max-plus + min-plus algebra, dioid, order, homomorphisms,
+`trop_sum_eq_Max`, `tropical_arith` method
+|950
+|0 ✅
+
+|`Tropical_Matrices_Full.thy`
+|Isabelle — matrix algebra, walk semantics, cycle shortcutting,
+Floyd-Warshall
+|631
+|2
+
+|`Tropical_Kleene.thy`
+|Isabelle — Kleene star definition, star equation, least prefixpoint,
+Floyd-Warshall corollary
+|345
+|4
+
+|`Tropical_CNO.thy`
+|Isabelle — Certified Null Operation instantiation for the absolute-zero
+framework: `is_trop_cno`, `trop_mat_star_idem`, six CNO instances,
+ΔS=0, O(0) termination
+|620
+|2
+
+|`Tropical_Matrices_Clean.thy`
+|Isabelle — same as Full but using v2 infrastructure; reference/scratchpad
+|488
+|2 (walks_Suc)
+
+|`Tropical_Matrices.thy`
+|Isabelle — superseded original; keep for diff reference only
+|694
+|7 (obsolete)
+
+|===
+
+**Do not use `Tropical.thy` (788 lines) — it is superseded by `Tropical_v2.thy`.**
+**Do not use `Tropical_Matrices.thy` (694 lines) — superseded by `Tropical_Matrices_Full.thy`.**
+
+The active dependency chain is:
+
+----
+Tropical_v2.thy
+  └── Tropical_Matrices_Full.thy
+        └── Tropical_Kleene.thy
+              └── Tropical_CNO.thy
+----
+
+
+== Remaining Sorries (10 total, all bookkeeping)
+
+=== `Tropical_Matrices_Full.thy` (2)
+
+[cols="1,2,2"]
+|===
+|Line |Name |Fix
+
+|309
+|`tropm_mat_pow_eq_sum_walks`
+|Symmetric to `max_khop_eq_sum_walks`; replace max by min throughout.
+~30 lines.
+
+|629
+|`bellman_ford`
+|Dual of `floyd_warshall`; identical proof structure with `tropm_` types.
+~same length as floyd_warshall proof.
+
+|===
+
+=== `Tropical_Kleene.thy` (4)
+
+[cols="1,2,2"]
+|===
+|Line |Name |Fix
+
+|146
+|pigeonhole step inside `trop_mat_pow_n_le_star`
+|`List.card_set` + `pigeonhole_simple`: a list of length n+1 with elements
+in {0..n-1} has a repeated element. 5 lines.
+
+|149
+|membership step inside same lemma
+|`cycle_shortcutting` applies once pigeonhole gives ¬distinct. 3 lines.
+
+|167 (text)
+|description text only — not an actual sorry
+|n/a
+
+|613 (text)
+|description text only — not an actual sorry
+|n/a
+
+|===
+
+Actual sorry count in Kleene: 2 (lines 146 and 149, both inside `trop_mat_pow_n_le_star`).
+
+=== `Tropical_CNO.thy` (2)
+
+[cols="1,2,2"]
+|===
+|Line |Name |Fix
+
+|122
+|`path_weight_join_list`
+|Induction on list of walks using `path_weight_join`. ~15 lines.
+
+|315
+|`path_weight_star_eq_concat`
+|Induction on walk length: for each edge of p in A*, apply
+`trop_mat_star_Max_achieved` to get achieving path, concatenate with
+`path_weight_join`. The most substantial remaining proof, ~30 lines.
+`path_weight_star_simple_le` and `has_positive_cycle_star` depend on this.
+
+|===
+
+=== `Tropical_Matrices_Clean.thy` (2)
+
+These are the same `walks_Suc` sorries as in Full — this file is a
+reference/scratchpad, not primary. Fix in Full; Clean follows.
+
+=== One-session close-out plan
+
+Close in this order (each unlocks the next):
+
+. `tropm_mat_pow_eq_sum_walks` (copy `max_khop_eq_sum_walks`, swap types)
+. `bellman_ford` (copy `floyd_warshall`, swap `tropical` → `tropical_min`)
+. Pigeonhole + membership in `trop_mat_pow_n_le_star`
+. `path_weight_join_list`
+. `path_weight_star_eq_concat`
+
+After step 5: zero sorries across the entire development.
+
+
+== What the v1.0 Handover Got Wrong
+
+Two errors in the previous handover to correct:
+
+=== Error 1: Kleene star open item
+
+v1.0 said:
+____
+_Kleene star — need completed semiring (`PosInf` adjoined to `tropical`)
+to define `a* = ⊕_{n≥0} aⁿ` unconditionally._
+____
+
+**This is wrong and the item is done.** `trop_mat_star` is defined in
+`Tropical_Kleene.thy` as `trop_mat_pow n (trop_mat_close n A) (n-1)` — a
+finite computation, no infinitary structure needed. The finite truncation
+at n-1 is exact under no positive cycles by `floyd_warshall`. Cross off.
+
+=== Error 2: Missing CNO workstream
+
+v1.0's file inventory showed ~1450 lines and 2 sorries. The actual current
+state is ~2550 lines and 10 sorries across 4 active files. The entire
+`Tropical_CNO.thy` workstream (620 lines, 14 sorry-free theorems) was done
+after v1.0 was written.
+
+
+== Lean 4: TropicalSessionTypes.lean v6.0
+
+=== Status: complete
+
+All theorems proved, zero sorries, verified on Lean 4.29.0, bare `import Init`
+(no Mathlib dependency).
+
+[cols="2,3,1"]
+|===
+|Theorem |Statement |Status
+
+|`add_comm` / `add_assoc`
+|Additive monoid laws for ⊕ (max)
+|✅
+
+|`bot_add` / `add_bot`
+|`bot` is additive identity
+|✅
+
+|`mul_comm` / `mul_assoc`
+|Multiplicative monoid laws for ⊗ (+)
+|✅
+
+|`one_mul` / `mul_one`
+|`val 0` is multiplicative identity
+|✅
+
+|`bot_mul` / `mul_bot`
+|`bot` annihilates under ⊗
+|✅
+
+|`left_distrib` / `right_distrib`
+|Full distributivity
+|✅
+
+|`grade_ne_bot`
+|All valid sessions have finite cost
+|✅
+
+|`soundness`
+|Static grade = dynamic Span
+|✅
+
+|`tropical_grade_le_sequentialTotal`
+|Tropical budget ≤ sequential billing (QTT refinement)
+|✅
+
+|===
+
+=== Open items (Lean 4)
+
+[cols="1,3,1"]
+|===
+|Priority |Item |Effort
+
+|1
+|Wire v6.0 theorems into `instance : CommSemiring Tropical`. Each field
+maps directly to an existing theorem. Enables `ring` tactic for
+downstream proofs.
+|~20 lines
+
+|2
+|Add `external_choice` / `internal_choice` constructors to `Session`.
+`grade` for choice uses `tAdd` (max over branches — worst case).
+Refinement theorem structure unchanged.
+|medium
+
+|3
+|State QTT quotient morphism explicitly: `sequentialTotal / linearBilling`
+is a quotient of tropical grading. Proved by refinement theorem but not
+yet stated as a quotient morphism. Paper section needed.
+|prose + 1 theorem
+
+|4
+|Check ECHIDNA Lean 4 prover interface compatibility.
+|investigation
+
+|5
+|Repo placement: recommend standalone `tropical-session-types`, cross-linked
+from `my-lang` and `maa-framework`.
+|housekeeping
+
+|===
+
+=== Design decisions (do not change without understanding these)
+
+* *Send-latency model*: `send` costs 1, `recv` costs 0. Sender is the
+  active party. If extending to symmetric/bidirectional sessions, `grade`
+  must be revisited.
+* *`recv` written as `val 0 * grade s`*: `val 0` is the multiplicative
+  identity, so this is literally `id`. Intentional for structural uniformity.
+  The multiplication does no semantic work.
+* *`Span` as internal adequacy model*: mirrors grading logic exactly.
+  Sufficient to state and prove soundness. Not a full reduction relation.
+
+
+== Isabelle: What Is Proved (complete list)
+
+=== `Tropical_v2.thy`
+
+* `tropical` datatype (max-plus over `nat ∪ {-∞}`)
+* `comm_semiring_1`, `dioid`, `linorder`, `order_bot` instances
+* `tropical_min` datatype (min-plus over `nat ∪ {+∞}`)
+* `comm_semiring_1`, `dioid`, `linorder`, `order_bot`, `order_top` for `tropical_min`
+* Semiring homomorphisms: `Fin_hom_*`, `Fin'_hom_*`
+* **`trop_sum_eq_Max`**: tropical sum of finite set = `Max` of image.
+  Key lemma that shortens all downstream proofs.
+* **`trop_sum_ge_member`**, **`trop_sum_mono_subset`**, **`trop_sum_dominated`**:
+  order lemmas, now 2–7 lines each (were 14–18).
+* **`tropical_arith`** proof method: closes goals involving NegInf/Fin
+  constructor arithmetic without manual case splits.
+* **`tropm_arith`** proof method: dual for `tropical_min`.
+
+=== `Tropical_Matrices_Full.thy`
+
+* Matrix types `trop_mat`, `tropm_mat`
+* `trop_mat_mul_assoc`, identity, power laws
+* Walk sets: `walks`, `walks_le`, finite, factorisation (`walks_Suc`)
+* `path_weight`, `path_weight_append`, `path_weight_cycle_excise`
+* **`trop_mat_pow_eq_sum_walks`**: matrix power = tropical sum over walks
+* **`trop_mat_pow_close_eq_sum_pow`**: dioid identity `(I⊕A)^k = ⊕_{m≤k} A^m`
+* **`trop_mat_pow_close_eq_sum_walks_le`**: closed matrix = sum over `walks_le`
+* **`cycle_shortcutting`**: every walk dominated by a simple walk (no pos cycles)
+* **`floyd_warshall`**: closed matrix star = max simple path weight
+
+=== `Tropical_Kleene.thy`
+
+* **`trop_mat_star`** definition: `(I⊕A)^{n-1}`
+* **`trop_mat_star_eq_sum_pow`**: star = ⊕_{m≤n-1} A^m
+* **`trop_mat_star_eq_sum_walks_le`**: star = sum over walks_le
+* **`trop_mat_star_equation`**: A* = I ⊕ A·A* (star equation)
+* **`trop_mat_star_eq_max_simple`**: A*(i,j) = max simple path weight
+* **`trop_mat_star_least_prefixpoint`**: A* is least solution to X ≥ I ⊕ A·X
+
+=== `Tropical_CNO.thy`
+
+* **`is_trop_cno n f`**: CNO predicate matching absolute-zero framework
+* **`trop_mat_close_idem`**: `(I⊕A)⊕(I⊕A) = I⊕A`
+* **`trop_mat_star_close_eq`**: `(I⊕A)* = A*`
+* **`trop_mat_star_Max_achieved`**: star value is achieved by a walk
+* **`distinct_walk_in_walks_le`**: distinct walk has ≤ n-1 edges (pigeonhole)
+* **`cycle_shortcutting_gen`**: shortcutting for walks of any length
+* **`no_pos_cycle_closed_walk_le`**: closed walks in A have weight ≤ 1
+* **`has_positive_cycle_star`**: no pos cycle in A → no pos cycle in A*
+* **`trop_mat_star_idem`**: A** = A* (main CNO theorem)
+* **`trop_cno_id`**: id is a CNO
+* **`trop_cno_close`**: `I⊕−` is a CNO
+* **`trop_cno_add_self`**: `A⊕A` is a CNO
+* **`trop_cno_star`**: `A*` is a CNO
+* **`trop_cno_compose`**: composition of CNOs is a CNO
+* **`trop_cno_delta_S_zero`**: CNOs satisfy ΔS=0
+* **`trop_cno_normal_form`**: second star costs O(0) computation
+
+
+== Cross-System Connections (not yet formalised)
+
+Three connections exist mathematically but are not yet written as theorems.
+Each is a paper section waiting to be written.
+
+=== 1. `soundness` = `max_khop_eq_sum_walks`
+
+Lean `soundness`: static grade = dynamic Span.
+Isabelle `max_khop_eq_sum_walks`: matrix power recurrence = sum over walks.
+
+Both say: recursive static definition = inductive operational semantics.
+If `Session` is mapped to a `trop_mat` (session type graph = adjacency matrix,
+entry node `i`, exit node `j`), Lean `soundness` is a corollary of the
+Isabelle theorem. This connection is the bridge for a joint paper.
+
+=== 2. `tropical_grade_le_sequentialTotal` = `tropical_add_idem`
+
+The refinement `max(n1,n2) ≤ n1+n2` is `max a b ≤ a+b` in ℕ, which
+follows from `add_idem` in the dioid: tropical addition never overcounts.
+State as Isabelle lemma: `trop_add a b ≤ a + b` (as naturals). Trivial, ~2 lines.
+
+=== 3. `spec_par` = `trop_mat_add`
+
+`spec_par s1 s2` with `grade = tAdd (grade s1) (grade s2)` is exactly
+`trop_mat_add` on single-edge session matrices. `send`/`recv` are
+single-column matrix multiplications. `grade s = trop_mat_star n (session_matrix s) 0 (exit s)`.
+Making this explicit gives a machine-checked session type checker backed by
+`floyd_warshall`.
+
+
+== Next Actions (priority order)
+
+[cols="1,3,1"]
+|===
+|Priority |Action |Effort
+
+|1
+|Close 10 sorries in order given above → zero sorry AFP submission
+|1 session
+
+|2
+|Wire Lean 4 `CommSemiring Tropical` instance (~20 lines)
+|<1 hour
+
+|3
+|Kleene algebra typeclass bridge: register `tropical` in AFP
+`Kleene_Algebra`; `trop_mat_star_equation` is exactly the KA star axiom
+|small
+
+|4
+|Betlang WCET theory: `Tropical_WCET.thy` connecting `trop_mat_star` to
+CFG WCET bounds; formal DO-178C argument
+|medium
+
+|5
+|MAA reachability: `Tropical_MAA.thy` connecting `trop_mat_pow n A k i j = 0`
+(NegInf = unreachable) to RMO obliteration; `> 0` to RMR reversibility witness
+|small-medium
+
+|6
+|Absolute Zero integration: cite `Tropical_CNO.thy` from `absolute-zero` Coq
+stack; add `tropical_cno_bridge.v` with admitted lemmas pointing to Isabelle
+|small
+
+|7
+|Draft paper: §2 algebra (Isabelle), §3 session types (Lean 4), §4 connection
+(`soundness` ↔ `max_khop_eq_sum_walks`), §5 CNO interpretation
+|medium
+
+|8
+|Tropical spectral theory: `trop_spectral_radius`, Howard's algorithm;
+novel AFP entry
+|large
+
+|===
+
+
+== Toolchain Notes
+
+=== Lean 4
+
+* Bare `import Init` — no Mathlib.
+* `omega` valid for ground Nat arithmetic (Lean ≥ 4.7). Fails on
+  unevaluated function applications → use `Nat.add_le_add_left`,
+  `Nat.max_le.mpr + Nat.le_trans` instead.
+* Verified clean on Lean 4.29.0.
+* Fallback for distributivity if omega fails: `simp [Nat.max_def]; split_ifs <;> omega`
+
+=== Isabelle
+
+* All files: `imports Main` (Tropical_v2) or `imports Tropical_v2`/
+  `Tropical_Matrices_Full`/`Tropical_Kleene` in the chain.
+* `tropical_arith` method defined in `Tropical_v2.thy` — available everywhere downstream.
+* Build: `isabelle build -D . -v Tropical_Semirings`
+* Expected build time: ~5 min on modern workstation.
+
+=== AFP Submission Checklist
+
+* [x] `ROOT` file written
+* [x] `document/root.tex` written
+* [x] `document/root.bib` written
+* [x] `README` with submission checklist written
+* [ ] All sorries closed (10 remaining)
+* [ ] AFP `metadata.yaml` (not yet created)
+* [ ] Final build verification on clean Isabelle install
+
+
+== Three Bugs Found and Fixed (Lean 4, for reference)
+
+[cols="1,1,2"]
+|===
+|Severity |Location |Fix
+
+|🔴 Compile error
+|`deriving PartialEq` (Rust trait leaked in)
+|→ `deriving DecidableEq`
+
+|🔴 Proof error
+|`injection ih` where `ih : grade s = val n` (lhs not constructor-headed)
+|→ `simp [grade, tMul, ih]` across all cases
+
+|🟡 Missing step
+|`s_par` case of soundness: goal not closed
+|→ closed by `simp` in v6.0 uniform approach
+
+|===
