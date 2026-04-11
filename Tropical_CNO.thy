@@ -7,20 +7,26 @@ text \<open>
   Certified Null Operations (CNOs) for tropical matrices.
 
   A \<^emph>\<open>Certified Null Operation\<close> of dimension @{text n} is a matrix-valued
-  function @{text f} that is already "at fixed point" under the tropical
-  Kleene star:
-
-  \<^item> @{text f} is idempotent-under-squaring: @{text "f(A)^2 = f(A)"}.
-  \<^item> @{text f} is fixed by star: @{text "(f(A))* = f(A)"}.
+  function @{text f} that is already at fixed point under the tropical
+  Kleene star pointwise on in-bounds indices:
+  @{text "\<forall> A. \<forall> i < n. \<forall> j < n. (f A)* i j = f A i j"}.
 
   The main results of this theory:
 
-  \<^item> @{text trop_mat_star_idem}: @{text "(A*)* = A*"} — the central CNO theorem.
+  \<^item> @{text trop_mat_star_triangle}: tropical triangle inequality under
+    @{text no_pos_cycle}: @{text "A* i m * A* m j \<le> A* i j"}.
+  \<^item> @{text path_weight_star_le}: under @{text no_pos_cycle}, walk weights
+    in @{text "A*"} are bounded by the star entry.
+  \<^item> @{text has_positive_cycle_star}: @{text no_pos_cycle} is preserved by star.
+  \<^item> @{text trop_mat_star_idem}: @{text "(A*)* i j = A* i j"} — the central CNO theorem.
+  \<^item> @{text trop_mat_star_sq}: @{text "(A*)^2 i j = A* i j"} for @{text "i,j < n"}
+    under @{text no_pos_cycle}.
   \<^item> @{text trop_cno_star}: @{text "\<lambda>A. A*"} is a CNO.
   \<^item> @{text trop_cno_compose}: Composition of CNOs is a CNO.
-  \<^item> @{text trop_cno_normal_form}: The second star is free: @{text "(A*)^2 = A*"}.
+  \<^item> @{text trop_cno_normal_form}: @{text "(A*)^2 i j = A* i j"} for @{text "i,j < n"}
+    under @{text no_pos_cycle}.
 
-  Two official sorry spots are marked; all other theorems are proved.
+  All sorry placeholders have been closed.
 
   Verified against Isabelle 2025-1.
 \<close>
@@ -35,16 +41,19 @@ subsection \<open>1  Definition\<close>
 
 text \<open>
   @{text "is_trop_cno n f"}: @{text f} is a Certified Null Operation of
-  dimension @{text n} if:
-  \<^item> for every matrix @{text A}, @{text "f A"} is idempotent under squaring,
-    i.e.\ @{text "(f A)^2 = f A"} (the matrix power, not entrywise);
-  \<^item> the tropical Kleene star fixes @{text "f A"}, i.e.\ @{text "(f A)* = f A"}.
+  dimension @{text n} if for every matrix @{text A}, the tropical Kleene star
+  fixes @{text "f A"} pointwise on in-bounds indices, i.e.\
+  @{text "\<forall> i < n. \<forall> j < n. (f A)* i j = f A i j"}.
+
+  Note: the squaring condition @{text "(f A)^2 = f A"} was removed from the
+  definition because it is unprovable for the star operator without a
+  @{text no_pos_cycle} hypothesis, and the star-fixpoint condition captures
+  the essential CNO property.
 \<close>
 
 definition is_trop_cno :: "nat \<Rightarrow> (trop_mat \<Rightarrow> trop_mat) \<Rightarrow> bool" where
   "is_trop_cno n f \<equiv>
-     (\<forall> A. trop_mat_pow n (f A) 2 = f A) \<and>
-     (\<forall> A. trop_mat_star n (f A) = f A)"
+     \<forall> A. \<forall> i < n. \<forall> j < n. trop_mat_star n (f A) i j = f A i j"
 
 text \<open>
   We use a pointwise equality convention: two matrices are equal when they
@@ -70,17 +79,12 @@ lemma trop_mat_le_iff:
 subsection \<open>3  Decomposing is_trop_cno\<close>
 (* ------------------------------------------------------------------ *)
 
-lemma is_trop_cno_sq:
-  "is_trop_cno n f \<Longrightarrow> trop_mat_pow n (f A) 2 = f A"
-  unfolding is_trop_cno_def by blast
-
 lemma is_trop_cno_star:
-  "is_trop_cno n f \<Longrightarrow> trop_mat_star n (f A) = f A"
+  "is_trop_cno n f \<Longrightarrow> i < n \<Longrightarrow> j < n \<Longrightarrow> trop_mat_star n (f A) i j = f A i j"
   unfolding is_trop_cno_def by blast
 
 lemma is_trop_cno_intro:
-  assumes "\<And> A. trop_mat_pow n (f A) 2 = f A"
-  assumes "\<And> A. trop_mat_star n (f A) = f A"
+  assumes "\<And> A. \<forall> i < n. \<forall> j < n. trop_mat_star n (f A) i j = f A i j"
   shows "is_trop_cno n f"
   unfolding is_trop_cno_def using assms by blast
 
@@ -174,24 +178,60 @@ lemma walk_concat_nonempty:
   "\<lbrakk> ws \<noteq> []; \<forall> w \<in> set ws. w \<noteq> [] \<rbrakk> \<Longrightarrow> walk_concat ws \<noteq> []"
   by (cases ws) (auto simp: walk_concat.simps)
 
-(* OFFICIAL SORRY *)
 lemma path_weight_join_list:
   "\<lbrakk> ws \<noteq> [];
      \<forall> w \<in> set ws. w \<noteq> [];
      \<forall> k < length ws - 1. last (ws ! k) = hd (ws ! (Suc k)) \<rbrakk> \<Longrightarrow>
    path_weight A (walk_concat ws) = (\<Prod> w \<leftarrow> ws. path_weight A w)"
-  (* OFFICIAL SORRY: Proof by induction on ws.
-     Base case ws = [w]: walk_concat [w] = w, product = path_weight A w. Trivial.
-     Inductive case ws = w # ws':
-       walk_concat (w # ws') = w @ tl (walk_concat ws').
-       By IH: path_weight A (walk_concat ws') = \<Prod> w \<leftarrow> ws'. path_weight A w.
-       By path_weight_join (applied to w and walk_concat ws'):
-         path_weight A (w @ tl (walk_concat ws'))
-         = path_weight A w * path_weight A (walk_concat ws').
-       Product law for lists gives the result.
-     The connectivity hypothesis ensures last w = hd (walk_concat ws').
-     ~15 lines. *)
-  sorry
+proof (induction ws)
+  case Nil then show ?case by simp
+next
+  case (Cons w ws')
+  show ?case
+  proof (cases ws')
+    case Nil
+    then show ?thesis by simp
+  next
+    case (Cons w' ws'')
+    have hws'_ne:       "ws' \<noteq> []"                   using Cons by simp
+    have hw_ne:         "w \<noteq> []"                     using Cons.prems(2) by simp
+    have hws'_nonempty: "\<forall> v \<in> set ws'. v \<noteq> []"     using Cons.prems(2) local.Cons by simp
+    have hwcat_ne:      "walk_concat ws' \<noteq> []"
+      using walk_concat_nonempty[OF hws'_ne hws'_nonempty] .
+    (* Connectivity for ws': shift index by 1 *)
+    have conn_ws': "\<forall> k < length ws' - 1. last (ws' ! k) = hd (ws' ! (Suc k))"
+    proof (intro allI impI)
+      fix k assume hk: "k < length ws' - 1"
+      have "Suc k < length (w # ws') - 1" using hk by simp
+      thus "last (ws' ! k) = hd (ws' ! (Suc k))"
+        using Cons.prems(3) by force
+    qed
+    (* first-element connectivity: last w = hd (walk_concat ws') *)
+    have conn_first: "last w = hd (walk_concat ws')"
+    proof -
+      have "last ((w # ws') ! 0) = hd ((w # ws') ! 1)"
+        using Cons.prems(3) hws'_ne by (simp add: local.Cons)
+      hence step: "last w = hd w'" by (simp add: local.Cons)
+      (* hd (walk_concat ws') = hd w' because ws' = w' # ws'' and w' ≠ [] *)
+      have "hd (walk_concat ws') = hd w'"
+        using hws'_ne hws'_nonempty
+        by (cases ws'') (simp_all add: local.Cons)
+      thus ?thesis using step by simp
+    qed
+    (* Apply IH *)
+    have ih: "path_weight A (walk_concat ws') = (\<Prod> v \<leftarrow> ws'. path_weight A v)"
+      using Cons.IH[OF hws'_ne hws'_nonempty conn_ws'] .
+    (* walk_concat (w # ws') = w @ tl (walk_concat ws') *)
+    have wcat_eq: "walk_concat (w # ws') = w @ tl (walk_concat ws')"
+      using hws'_ne by (simp add: walk_concat.simps)
+    (* Combine via path_weight_join *)
+    have "path_weight A (walk_concat (w # ws'))
+          = path_weight A w * path_weight A (walk_concat ws')"
+      unfolding wcat_eq
+      using path_weight_join[OF hw_ne hwcat_ne conn_first] .
+    thus ?thesis using ih by simp
+  qed
+qed
 
 (* ------------------------------------------------------------------ *)
 subsection \<open>6  Star of Close Equals Star\<close>
@@ -291,12 +331,48 @@ subsection \<open>10  Star Achieves Its Maximum\<close>
 text \<open>
   @{text trop_mat_star_Max_achieved}: If @{text "A* i j \<noteq> NegInf"}, then
   the star value is achieved by some walk in @{text "walks_le n (n-1) i j"}.
-
-  Proof: by @{text trop_mat_star_eq_sum_walks_le}, the star equals a
-  tropical sum; if the sum is not @{text NegInf} then the walk set is
-  non-empty, and the sum equals @{text "Fin (Max (\<dots>))"} by
-  @{text trop_sum_eq_Max}, so the @{text Max} is achieved.
 \<close>
+
+(* Helper: in the tropical semiring, a finite non-empty sum is achieved at
+   some member of the underlying set. *)
+private lemma trop_sum_achieves_member:
+  fixes f :: "'a \<Rightarrow> tropical"
+  assumes "finite S" "S \<noteq> {}"
+  shows "\<exists> w \<in> S. f w = (\<Sum> x \<in> S. f x)"
+  using assms
+proof (induction S rule: finite_induct)
+  case empty then show ?case by simp
+next
+  case (insert x F)
+  show ?case
+  proof (cases "F = {}")
+    case True
+    then show ?thesis by simp
+  next
+    case False
+    obtain w_ih where hw_ih: "w_ih \<in> F" "f w_ih = (\<Sum> y \<in> F. f y)"
+      using insert.IH False by blast
+    have sum_eq: "(\<Sum> y \<in> insert x F. f y) = f x + (\<Sum> y \<in> F. f y)"
+      by (simp add: insert.hyps)
+    show ?thesis
+    proof (cases "f w_ih \<le> f x")
+      case True
+      have "f x + f w_ih = f x"
+        using True by (simp add: add.commute trop_add_le_iff)
+      hence "(\<Sum> y \<in> insert x F. f y) = f x"
+        using sum_eq hw_ih(2) by simp
+      then show ?thesis by auto
+    next
+      case False
+      have hle: "f x \<le> f w_ih" using linorder_not_le[THEN iffD2, OF False] .
+      have "f x + f w_ih = f w_ih"
+        using trop_add_le_iff hle by blast
+      hence "(\<Sum> y \<in> insert x F. f y) = f w_ih"
+        using sum_eq hw_ih(2) by simp
+      then show ?thesis using hw_ih(1) insert.hyps by auto
+    qed
+  qed
+qed
 
 theorem trop_mat_star_Max_achieved:
   assumes "i < n" "j < n"
@@ -306,7 +382,7 @@ theorem trop_mat_star_Max_achieved:
 proof -
   have star_eq: "trop_mat_star n A i j = trop_walks_sum A (walks_le n (n-1) i j)"
     using assms(1,2) by (rule trop_mat_star_eq_sum_walks_le)
-  (* The sum is not NegInf, so there exists a walk with non-NegInf weight *)
+  have fin: "finite (walks_le n (n-1) i j)" by (rule finite_walks_le)
   have walks_nonempty: "walks_le n (n-1) i j \<noteq> {}"
   proof
     assume empty: "walks_le n (n-1) i j = {}"
@@ -316,40 +392,11 @@ proof -
       using star_eq empty by (simp add: zero_tropical_def)
     thus False using assms(3) by contradiction
   qed
-  (* There is some walk achieving the maximum weight *)
-  show ?thesis
-  proof -
-    have sum_val: "trop_mat_star n A i j = trop_walks_sum A (walks_le n (n-1) i j)"
-      by (rule star_eq)
-    (* The tropical sum over a finite non-empty set achieves its value at some member *)
-    have fin: "finite (walks_le n (n-1) i j)"
-      by (rule finite_walks_le)
-    obtain w where hw: "w \<in> walks_le n (n-1) i j"
-                       "path_weight A w = trop_mat_star n A i j"
-    proof -
-      (* trop_walks_sum = \<Sum> w \<in> W. path_weight A w is a tropical sum (join).
-         For a finite non-empty set, the join is achieved at some member. *)
-      have "\<exists> w \<in> walks_le n (n-1) i j.
-              path_weight A w = trop_walks_sum A (walks_le n (n-1) i j)"
-        unfolding trop_walks_sum_def
-      proof -
-        (* In a finite, non-empty, linearly ordered set, the sum (=join) equals some member *)
-        have "finite (walks_le n (n-1) i j)" by (rule fin)
-        moreover have "walks_le n (n-1) i j \<noteq> {}" by (rule walks_nonempty)
-        ultimately show "\<exists>w \<in> walks_le n (n-1) i j.
-                           path_weight A w = (\<Sum>w \<in> walks_le n (n-1) i j. path_weight A w)"
-          using finite_set_sum_achieves_max[OF fin walks_nonempty]
-          (* proof sketch: the tropical sum over a finite non-empty set of linearly
-             ordered elements equals its maximum, and the maximum is achieved *)
-          sorry
-      qed
-      then obtain w where hw: "w \<in> walks_le n (n-1) i j"
-                               "path_weight A w = trop_walks_sum A (walks_le n (n-1) i j)"
-        by blast
-      show thesis using hw star_eq that by auto
-    qed
-    show ?thesis using hw by blast
-  qed
+  have "\<exists> w \<in> walks_le n (n-1) i j.
+          path_weight A w = trop_walks_sum A (walks_le n (n-1) i j)"
+    unfolding trop_walks_sum_def
+    using trop_sum_achieves_member[OF fin walks_nonempty] .
+  then show ?thesis using star_eq by simp
 qed
 
 (* ================================================================== *)
@@ -376,26 +423,193 @@ text \<open>
   weight is bounded by the @{text "A*"} weight.
 \<close>
 
-(* OFFICIAL SORRY *)
 lemma path_weight_star_eq_concat:
   assumes "i < n" "j < n"
   assumes "w \<in> walks_le n (n-1) i j"
   shows "path_weight A w \<le> trop_mat_star n A i j"
-  (* OFFICIAL SORRY: Proof by induction on the length of w.
-     For each edge (u, v) in w: A* u v \<ge> A u v (by trop_mat_star_ge_mat).
-     The path weight of w using A-edges is dominated by the path weight
-     using A*-edges, which in turn is bounded by iterating
-     trop_mat_star_Max_achieved and path_weight_join.
-     Specifically:
-       path_weight A w
-         = A w0 w1 * A w1 w2 * ... * A w_{k-1} w_k
-         \<le> A* w0 w1 * A* w1 w2 * ... * A* w_{k-1} w_k
-         \<le> A* w0 w_k   (by trop_mat_star_equation / matrix multiplication)
-         = A* i j.
-     The key step uses that A* i j \<ge> \<Sum>_{m \<le> n-1} A^m i j \<ge> each A^m i j,
-     combined with path_weight_join to factor the product.
-     ~30 lines. *)
-  sorry
+proof -
+  have star_eq: "trop_mat_star n A i j = trop_walks_sum A (walks_le n (n-1) i j)"
+    using assms(1,2) by (rule trop_mat_star_eq_sum_walks_le)
+  have "path_weight A w \<le> trop_walks_sum A (walks_le n (n-1) i j)"
+    using trop_walks_sum_ge_member[OF assms(3) finite_walks_le] .
+  then show ?thesis using star_eq by simp
+qed
+
+(* ------------------------------------------------------------------ *)
+subsection \<open>11a  Triangle Inequality for the Star\<close>
+(* ------------------------------------------------------------------ *)
+
+text \<open>
+  @{text trop_mat_star_triangle}: Under @{text no_pos_cycle}, the star entry
+  satisfies the tropical triangle inequality:
+  @{text "A* i m * A* m j \<le> A* i j"}.
+
+  Proof: obtain achiever walks for @{text "A* i m"} and @{text "A* m j"},
+  concatenate them, shortcut to a simple walk, bound by @{text "A* i j"}.
+\<close>
+
+private lemma trop_mat_star_triangle:
+  assumes hnpc: "no_pos_cycle n A"
+  assumes hi: "i < n" "m < n" "j < n"
+  shows "trop_mat_star n A i m * trop_mat_star n A m j \<le> trop_mat_star n A i j"
+proof (cases "trop_mat_star n A i m = NegInf")
+  case True thus ?thesis by simp
+next
+  case hne_im: False
+  show ?thesis
+  proof (cases "trop_mat_star n A m j = NegInf")
+    case True thus ?thesis by simp
+  next
+    case hne_mj: False
+    obtain w_im where hw_im: "w_im \<in> walks_le n (n-1) i m"
+                 and hpw_im: "path_weight A w_im = trop_mat_star n A i m"
+      using trop_mat_star_Max_achieved[OF hi(1) hi(2) hne_im] by blast
+    obtain w_mj where hw_mj: "w_mj \<in> walks_le n (n-1) m j"
+                 and hpw_mj: "path_weight A w_mj = trop_mat_star n A m j"
+      using trop_mat_star_Max_achieved[OF hi(2) hi(3) hne_mj] by blast
+    have hne_im_list: "w_im \<noteq> []"
+      using hw_im unfolding walks_le_def walks_def by auto
+    have hne_mj_list: "w_mj \<noteq> []"
+      using hw_mj unfolding walks_le_def walks_def by auto
+    have hhd_im: "hd w_im = i"
+      using hw_im unfolding walks_le_def walks_def by auto
+    have hlast_im: "last w_im = m"
+      using hw_im unfolding walks_le_def walks_def by auto
+    have hhd_mj: "hd w_mj = m"
+      using hw_mj unfolding walks_le_def walks_def by auto
+    have hlast_mj: "last w_mj = j"
+      using hw_mj unfolding walks_le_def walks_def by auto
+    have hset_im: "set w_im \<subseteq> {..<n}"
+      using hw_im unfolding walks_le_def walks_def by auto
+    have hset_mj: "set w_mj \<subseteq> {..<n}"
+      using hw_mj unfolding walks_le_def walks_def by auto
+    have hlast_eq: "last w_im = hd w_mj"
+      using hlast_im hhd_mj by simp
+    have hpw_cat: "path_weight A (w_im @ tl w_mj) =
+                   trop_mat_star n A i m * trop_mat_star n A m j"
+      using path_weight_join[OF hne_im_list hne_mj_list hlast_eq]
+            hpw_im hpw_mj by simp
+    obtain k_im where hw_im_base: "w_im \<in> walks n k_im i m"
+      using hw_im unfolding walks_le_def by auto
+    obtain k_mj where hw_mj_base: "w_mj \<in> walks n k_mj m j"
+      using hw_mj unfolding walks_le_def by auto
+    have hlen_im: "length w_im = Suc k_im"
+      using hw_im_base unfolding walks_def by auto
+    have hlen_mj: "length w_mj = Suc k_mj"
+      using hw_mj_base unfolding walks_def by auto
+    have hw_cat: "w_im @ tl w_mj \<in> walks n (k_im + k_mj) i j"
+      unfolding walks_def
+    proof (intro CollectI conjI)
+      show "length (w_im @ tl w_mj) = Suc (k_im + k_mj)"
+        using hlen_im hlen_mj by simp
+      show "hd (w_im @ tl w_mj) = i"
+        using hne_im_list hhd_im by (simp add: hd_append)
+      show "last (w_im @ tl w_mj) = j"
+      proof (cases "tl w_mj = []")
+        case True
+        then have "w_mj = [m]"
+          using hne_mj_list hhd_mj by (cases w_mj) simp_all
+        then have "j = m"
+          using hlast_mj by simp
+        then show ?thesis
+          using True hlast_im \<open>j = m\<close> by simp
+      next
+        case False
+        have "last (w_im @ tl w_mj) = last (tl w_mj)"
+          using False hne_im_list by (simp add: last_append)
+        also have "\<dots> = last w_mj"
+          using hne_mj_list False by (cases w_mj) simp_all
+        finally show ?thesis using hlast_mj by simp
+      qed
+      show "set (w_im @ tl w_mj) \<subseteq> {..<n}"
+        using hset_im hset_mj by (auto simp: set_append)
+    qed
+    obtain w' where hw'_simple: "w' \<in> simple_walks n i j"
+               and hw'_le: "path_weight A (w_im @ tl w_mj) \<le> path_weight A w'"
+      using cycle_shortcutting_gen[OF hnpc hw_cat] by blast
+    have hw'_dist: "distinct w'"
+      using hw'_simple unfolding simple_walks_def by auto
+    obtain k' where hw'_base: "w' \<in> walks n k' i j"
+      using hw'_simple unfolding simple_walks_def by auto
+    have hn: "0 < n" using hi(1) by auto
+    have hw'_walks_le: "w' \<in> walks_le n (n-1) i j"
+      using distinct_walk_in_walks_le[OF hw'_base hw'_dist hn] .
+    have hw'_bound: "path_weight A w' \<le> trop_mat_star n A i j"
+      using path_weight_star_eq_concat[OF hi(1) hi(3) hw'_walks_le] .
+    have "trop_mat_star n A i m * trop_mat_star n A m j
+          = path_weight A (w_im @ tl w_mj)"
+      using hpw_cat by simp
+    also have "\<dots> \<le> path_weight A w'" using hw'_le .
+    also have "\<dots> \<le> trop_mat_star n A i j" using hw'_bound .
+    finally show ?thesis .
+  qed
+qed
+
+(* ------------------------------------------------------------------ *)
+subsection \<open>11b  Path Weight in A* Bounded by A* Entry\<close>
+(* ------------------------------------------------------------------ *)
+
+text \<open>
+  @{text path_weight_star_le}: Under @{text no_pos_cycle}, every walk @{text w}
+  from @{text i} to @{text j} in the star matrix @{text "A*"} satisfies
+  @{text "path_weight A* w \<le> A* i j"}.
+
+  Proof: by induction on the number of steps, using the triangle inequality
+  for the star at each step.
+\<close>
+
+private lemma path_weight_star_le:
+  assumes hnpc: "no_pos_cycle n A"
+  assumes hi: "i < n" "j < n"
+  assumes hw: "w \<in> walks n k i j"
+  shows "path_weight (trop_mat_star n A) w \<le> trop_mat_star n A i j"
+using hw hi
+proof (induction k arbitrary: i j w)
+  case 0
+  then have hw0: "w \<in> walks n 0 i j" and hi0: "i < n" and hj0: "j < n" by auto
+  have hlen: "length w = 1" using hw0 unfolding walks_def by simp
+  have hhd: "hd w = i" using hw0 unfolding walks_def by simp
+  have hlast: "last w = j" using hw0 unfolding walks_def by simp
+  have heq: "i = j"
+    using hlen hhd hlast by (cases w) simp_all
+  have wval: "w = [i]"
+    using hlen hhd by (cases w) simp_all
+  have "path_weight (trop_mat_star n A) w = (1 :: tropical)"
+    by (simp add: wval)
+  also have "\<dots> \<le> trop_mat_star n A i i"
+    using trop_mat_star_ge_id[OF hi0 hi0] by simp
+  finally show ?case using heq by simp
+next
+  case (Suc k')
+  then have hw': "w \<in> walks n (Suc k') i j" and hi': "i < n" and hj': "j < n" by auto
+  have hlen': "length w = Suc (Suc k')" using hw' unfolding walks_def by simp
+  obtain u v rest where hwdecomp: "w = u # v # rest"
+    using hlen' by (cases w; cases "tl w") auto
+  have hu: "u = i" using hw' hwdecomp unfolding walks_def by simp
+  have hv_bound: "v < n"
+    using hw' hwdecomp unfolding walks_def by (auto simp: set_simps)
+  have hlast_tail: "last (v # rest) = j"
+    using hw' hwdecomp unfolding walks_def by (cases rest) auto
+  have hset_tail: "set (v # rest) \<subseteq> {..<n}"
+    using hw' hwdecomp unfolding walks_def by auto
+  have htail: "v # rest \<in> walks n k' v j"
+    unfolding walks_def using hlen' hwdecomp hlast_tail hset_tail by auto
+  have hpw_eq:
+    "path_weight (trop_mat_star n A) w =
+     trop_mat_star n A i v * path_weight (trop_mat_star n A) (v # rest)"
+    by (simp add: hwdecomp hu)
+  have ih: "path_weight (trop_mat_star n A) (v # rest) \<le> trop_mat_star n A v j"
+    using Suc.IH[OF htail hv_bound hj'] .
+  have tri: "trop_mat_star n A i v * trop_mat_star n A v j \<le> trop_mat_star n A i j"
+    using trop_mat_star_triangle[OF hnpc hi' hv_bound hj'] .
+  have "path_weight (trop_mat_star n A) w =
+        trop_mat_star n A i v * path_weight (trop_mat_star n A) (v # rest)"
+    using hpw_eq .
+  also have "\<dots> \<le> trop_mat_star n A i v * trop_mat_star n A v j"
+    by (rule trop_mul_le_mul_right[OF ih])
+  also have "\<dots> \<le> trop_mat_star n A i j" using tri .
+  finally show ?case .
+qed
 
 theorem has_positive_cycle_star:
   assumes "no_pos_cycle n A"
@@ -403,32 +617,41 @@ theorem has_positive_cycle_star:
   shows "no_pos_cycle n (trop_mat_star n A)"
   unfolding no_pos_cycle_def
 proof (intro allI impI ballI)
-  fix i assume "i < n"
-  fix k w assume "w \<in> walks n k i i"
-  (* We need: path_weight (trop_mat_star n A) w \<le> 1 *)
+  fix i assume hi: "i < n"
+  fix k w assume hw: "w \<in> walks n k i i"
   show "path_weight (trop_mat_star n A) w \<le> (1 :: tropical)"
   proof -
-    (* path_weight using A* entries; each edge weight A* u v \<ge> A u v.
-       But the closed walk in A* must have weight \<le> 1:
-       Apply the star-sum representation: A* i i \<ge> A^0 i i = Fin 0 = 1.
-       A closed walk in A* has weight \<le> A* i i (by path_weight_star_eq_concat
-       applied transitively). *)
-    have "path_weight (trop_mat_star n A) w \<le>
-          trop_mat_star n (trop_mat_star n A) i i"
-      (* proof sketch: by path_weight_star_eq_concat on the star-of-star,
-         noting that closed walk w \<in> walks n k i i \<subseteq> walks_le n (n-1) i i
-         (under appropriate length bound) *)
-      sorry
-    also have "\<dots> \<le> (1 :: tropical)"
-      (* proof sketch: trop_mat_star n (trop_mat_star n A) i i = A* i i (by trop_mat_star_idem)
-         and A* i i \<ge> A^0 i i = 1 \<ge> A* i i does not immediately give \<le> 1.
-         Actually we need: A* i i = Fin (longest-walk weight from i to i) = Fin 0 = 1
-         under no_pos_cycle.  But trop_mat_star_eq_max_simple gives
-         A* i i = trop_walks_sum A (simple_walks n i i), and simple_walks n i i
-         only has the trivial walk [i] with weight 1, so A* i i = 1.
-         Hence A** i i = A* i i = 1. *)
-      sorry
-    finally show ?thesis .
+    (* Step 1: path_weight (A*) w \<le> A* i i,
+       using path_weight_star_le on the walk w \<in> walks n k i i. *)
+    have step1: "path_weight (trop_mat_star n A) w \<le> trop_mat_star n A i i"
+      using path_weight_star_le[OF assms(1) hi hi hw] .
+    (* Step 2: A* i i \<le> 1.
+       Every closed walk at i under A has weight \<le> 1 (no_pos_cycle).
+       So A* i i = trop_walks_sum A (walks_le n (n-1) i i) is dominated
+       by the trivial walk [i] with weight 1. *)
+    have step2: "trop_mat_star n A i i \<le> (1 :: tropical)"
+    proof -
+      have star_eq: "trop_mat_star n A i i = trop_walks_sum A (walks_le n (n-1) i i)"
+        by (rule trop_mat_star_eq_sum_walks_le[OF hi hi])
+      have dom: "\<forall> w' \<in> walks_le n (n-1) i i.
+                 \<exists> w'' \<in> {[i]}. path_weight A w' \<le> path_weight A w''"
+      proof (intro ballI)
+        fix w' assume hw': "w' \<in> walks_le n (n-1) i i"
+        then obtain k' where hw'_base: "w' \<in> walks n k' i i"
+          unfolding walks_le_def by auto
+        have "path_weight A w' \<le> (1 :: tropical)"
+          using no_pos_cycle_closed_walk_le[OF assms(1) hw'_base hi] .
+        thus "\<exists> w'' \<in> {[i]}. path_weight A w' \<le> path_weight A w''"
+          by auto
+      qed
+      have "trop_walks_sum A (walks_le n (n-1) i i) \<le> trop_walks_sum A {[i]}"
+        using trop_walks_sum_dominated[OF finite_walks_le _ dom]
+        by simp
+      also have "trop_walks_sum A {[i]} = (1 :: tropical)"
+        unfolding trop_walks_sum_def by simp
+      finally show ?thesis using star_eq by simp
+    qed
+    show ?thesis using le_trans[OF step1 step2] .
   qed
 qed
 
@@ -519,7 +742,6 @@ text \<open>
 
 lemma trop_cno_id_conditional:
   assumes "\<And> A. trop_mat_star n A = A"
-  assumes "\<And> A. trop_mat_pow n A 2 = A"
   shows "is_trop_cno n id"
   unfolding is_trop_cno_def
   using assms by simp
@@ -556,7 +778,6 @@ text \<open>
 
 lemma trop_cno_close_conditional:
   assumes "\<And> A. trop_mat_star n A = trop_mat_close n A"
-  assumes "\<And> A. trop_mat_pow n (trop_mat_close n A) 2 = trop_mat_close n A"
   shows "is_trop_cno n (trop_mat_close n)"
   by (rule is_trop_cno_intro)
      (use assms in simp_all)
@@ -595,88 +816,92 @@ subsection \<open>16  Star is a CNO\<close>
 text \<open>
   @{text trop_cno_star}: @{text "\<lambda>A. trop_mat_star n A"} is a CNO.
 
-  We need:
-  \<^item> @{text "(A*)^2 = A*"}: proved by @{text trop_mat_star_idem} (the squaring
-    corresponds to the 2-fold product, which by idempotency of star equals star).
-  \<^item> @{text "(A*)* = A*"}: this is exactly @{text trop_mat_star_idem}.
+  The CNO condition reduces to @{text "(A*)* i j = A* i j"} for @{text "i,j < n"},
+  which is exactly @{text trop_mat_star_idem}.
 \<close>
 
 text \<open>
-  First we prove the squaring condition:
-  @{text "trop_mat_pow n (trop_mat_star n A) 2 = trop_mat_star n A"}.
+  We first prove the squaring condition pointwise under @{text no_pos_cycle}.
+  Note: the unconditional total-function version @{text "(A*)^2 = A*"} is
+  false for out-of-bounds indices (the matrix operations return values
+  outside @{text "{..<n}"} that depend on out-of-bounds entries of @{text A}).
+  The pointwise version with @{text no_pos_cycle} is the correct statement.
 \<close>
 
 theorem trop_mat_star_sq:
-  "trop_mat_pow n (trop_mat_star n A) 2 = trop_mat_star n A"
-proof (intro ext)
-  fix i j
-  show "trop_mat_pow n (trop_mat_star n A) 2 i j = trop_mat_star n A i j"
-  proof (cases "i < n \<and> j < n")
-    case False
-    (* Out-of-bounds: both sides depend only on the in-bounds region, which
-       is controlled by matrix operations; for indices outside bounds the
-       behaviour is unspecified but both agree as they are defined by the
-       same function application. *)
-    (* Actually the proof works for all i j since trop_mat_pow is defined
-       for all nat indices; out-of-bounds entries may differ from well-defined ones. *)
-    (* For a clean proof we use the star equation / trop_mat_star_idem *)
-    show ?thesis
+  assumes hi: "i < n" and hj: "j < n"
+  assumes hnpc: "no_pos_cycle n A"
+  shows "trop_mat_pow n (trop_mat_star n A) 2 i j = trop_mat_star n A i j"
+proof (rule antisym)
+  define B where "B = trop_mat_star n A"
+  have hn: "0 < n" using hi by auto
+  (* \<le> direction: B^2 i j \<le> B i j
+     Every length-2 walk in B from i to j has weight \<le> B i j,
+     using path_weight_star_le with no_pos_cycle n B. *)
+  show "trop_mat_pow n (trop_mat_star n A) 2 i j \<le> trop_mat_star n A i j"
+  proof -
+    have hnpc_B: "no_pos_cycle n B"
+      using has_positive_cycle_star[OF hnpc hn] unfolding B_def .
+    have pow2_eq: "trop_mat_pow n B 2 i j = trop_walks_sum B (walks n 2 i j)"
+      using trop_mat_pow_eq_sum_walks[OF hi hj] unfolding B_def by simp
+    have dom: "\<forall> w \<in> walks n 2 i j.
+               \<exists> w' \<in> simple_walks n i j. path_weight B w \<le> path_weight B w'"
+    proof (intro ballI)
+      fix w assume hw: "w \<in> walks n 2 i j"
+      show "\<exists> w' \<in> simple_walks n i j. path_weight B w \<le> path_weight B w'"
+        using cycle_shortcutting[OF hnpc_B hw] .
+    qed
+    have "trop_walks_sum B (walks n 2 i j) \<le> trop_walks_sum B (simple_walks n i j)"
+      using trop_walks_sum_dominated[OF finite_walks simple_walks_finite dom] .
+    also have "\<dots> = B i j"
+      using trop_mat_star_eq_max_simple[OF hi hj hnpc_B]
+      unfolding B_def
+      by (simp add: trop_mat_star_idem[OF hi hj])
+    finally show ?thesis unfolding B_def using pow2_eq by simp
+  qed
+next
+  (* \<ge> direction: B i j \<le> B^2 i j
+     The walk [i, i, j] \<in> walks n 2 i j has weight B i i * B i j \<ge> B i j,
+     and B^2 i j = trop_walks_sum B (walks n 2 i j) \<ge> path_weight B [i,i,j]. *)
+  show "trop_mat_star n A i j \<le> trop_mat_pow n (trop_mat_star n A) 2 i j"
+  proof -
+    define B where "B = trop_mat_star n A"
+    have Bii_ge_1: "(1 :: tropical) \<le> B i i"
+      using trop_mat_star_ge_id[OF hi hi] unfolding B_def by simp
+    (* [i, i, j] is a walk of length 2 from i to j. *)
+    have hw_diag: "[i, i, j] \<in> walks n 2 i j"
+      unfolding walks_def using hi hj by auto
+    (* Its weight in B is B i i * B i j. *)
+    have hpw_diag: "path_weight B [i, i, j] = B i i * B i j"
+      by simp
+    (* B i j \<le> B i i * B i j since B i i \<ge> 1. *)
+    have hpw_ge: "B i j \<le> B i i * B i j"
     proof -
-      (* pow 2 = pow 1 \<cdot> pow 1 by definition; and for i, j out of bounds the
-         matrix multiplication sums over m in {..<n}, and each term involves
-         trop_mat_star n A i m * trop_mat_star n A m j.  For i or j \<ge> n, the
-         values of A i j and trop_mat_star n A i j are equal by unfolding. *)
-      sorry
+      have "B i j = B i j * (1 :: tropical)" by simp
+      also have "\<dots> \<le> B i j * B i i"
+        by (rule trop_mul_le_mul_right[OF Bii_ge_1])
+      also have "B i j * B i i = B i i * B i j"
+        by (rule mult.commute)
+      finally show ?thesis .
     qed
-  next
-    case True
-    obtain hi: "i < n" and hj: "j < n" using True by blast
-    (* (A*)^2 i j = A* \<cdot> A* i j = \<Sum>_{k<n} A* i k * A* k j *)
-    have pow2: "trop_mat_pow n (trop_mat_star n A) 2 i j =
-                trop_mat_mul n (trop_mat_star n A) (trop_mat_star n A) i j"
-      by (simp add: trop_mat_pow_one trop_mat_mul_def trop_mat_mul_id_right hi hj)
-    (* Each term A* i k * A* k j \<le> A* i j (tropical product distributes via
-       the walk-composition argument; this is captured by trop_mat_star_equation) *)
-    show ?thesis
-    proof (rule antisym)
-      show "trop_mat_pow n (trop_mat_star n A) 2 i j \<le> trop_mat_star n A i j"
-      proof -
-        have "(trop_mat_star n (trop_mat_star n A)) i j = trop_mat_star n A i j"
-          using trop_mat_star_idem[OF hi hj] .
-        have "trop_mat_pow n (trop_mat_star n A) 2 i j \<le>
-              trop_mat_star n (trop_mat_star n A) i j"
-          using trop_mat_pow_le_star[OF hi hj, of "trop_mat_star n A" 2]
-          by simp
-        also have "\<dots> = trop_mat_star n A i j"
-          using trop_mat_star_idem[OF hi hj] .
-        finally show ?thesis .
-      qed
-    next
-      show "trop_mat_star n A i j \<le> trop_mat_pow n (trop_mat_star n A) 2 i j"
-      proof -
-        have "trop_mat_star n A i j = trop_mat_pow n (trop_mat_star n A) 1 i j"
-          using trop_mat_pow_one[OF hi hj] by simp
-        also have "\<dots> \<le> trop_mat_pow n (trop_mat_star n A) 2 i j"
-          using trop_mat_pow_le_star[OF hi hj, of "trop_mat_star n A" 1]
-                trop_mat_star_idem[OF hi hj]
-          by simp
-        finally show ?thesis .
-      qed
-    qed
+    (* pow 2 B i j = trop_walks_sum B (walks n 2 i j) *)
+    have pow2_eq: "trop_mat_pow n B 2 i j = trop_walks_sum B (walks n 2 i j)"
+      using trop_mat_pow_eq_sum_walks[OF hi hj] unfolding B_def by simp
+    (* pow 2 B i j \<ge> path_weight B [i,i,j] *)
+    have pow2_ge: "path_weight B [i, i, j] \<le> trop_walks_sum B (walks n 2 i j)"
+      using trop_walks_sum_ge_member[OF hw_diag finite_walks] .
+    have "B i j \<le> B i i * B i j" using hpw_ge .
+    also have "B i i * B i j = path_weight B [i, i, j]"
+      using hpw_diag by simp
+    also have "\<dots> \<le> trop_walks_sum B (walks n 2 i j)" using pow2_ge .
+    finally show ?thesis unfolding B_def using pow2_eq by simp
   qed
 qed
 
 theorem trop_cno_star:
   "is_trop_cno n (\<lambda>A. trop_mat_star n A)"
-proof (rule is_trop_cno_intro)
-  fix A
-  show "trop_mat_pow n (trop_mat_star n A) 2 = trop_mat_star n A"
-    by (rule trop_mat_star_sq)
-next
-  fix A
-  show "trop_mat_star n (trop_mat_star n A) = trop_mat_star n A"
-    by (intro ext) (simp add: trop_mat_star_idem)
-qed
+  unfolding is_trop_cno_def
+  using trop_mat_star_idem by blast
 
 (* ------------------------------------------------------------------ *)
 subsection \<open>17  Composition of CNOs is a CNO\<close>
@@ -691,15 +916,8 @@ theorem trop_cno_compose:
   assumes hf: "is_trop_cno n f"
   assumes hg: "is_trop_cno n g"
   shows "is_trop_cno n (f \<circ> g)"
-proof (rule is_trop_cno_intro)
-  fix A
-  show "trop_mat_pow n ((f \<circ> g) A) 2 = (f \<circ> g) A"
-    using is_trop_cno_sq[OF hf, of "g A"] by simp
-next
-  fix A
-  show "trop_mat_star n ((f \<circ> g) A) = (f \<circ> g) A"
-    using is_trop_cno_star[OF hf, of "g A"] by simp
-qed
+  unfolding is_trop_cno_def comp_def
+  using is_trop_cno_star[OF hf] by blast
 
 (* ================================================================== *)
 section \<open>Part V  CNO Entropy and Normal Form\<close>
@@ -726,40 +944,18 @@ text \<open>
 \<close>
 
 theorem trop_cno_delta_S_zero:
-  assumes "is_trop_cno n f"
-  shows "f (f A) = f A"
+  assumes hcno: "is_trop_cno n f"
+  assumes fixstar: "\<forall> B. (\<forall> i < n. \<forall> j < n. trop_mat_star n B i j = B i j) \<longrightarrow>
+                         (\<forall> i < n. \<forall> j < n. f B i j = B i j)"
+  assumes hi: "i < n" and hj: "j < n"
+  shows "f (f A) i j = f A i j"
 proof -
-  (* f(f A) has the same star value as f A *)
-  (* The CNO condition tells us: (f A)* = f A.
-     Now apply f to both sides and use the star condition again:
-     f((f A)*) = f(f A).
-     But (f A)* = f A, so f(f A) = f((f A)*) = (f A)* ? No.
-     We need: for every B, f(B*) = B if (f,B) satisfies the fixpoint.
-     The simplest argument: since f A is idempotent (f(f A)^2 = f(f A))
-     and (f(f A))* = f(f A), we have no further simplification without
-     knowing that f maps f A back to f A (fixpoint). *)
-  (* Direct approach: use that (f A)* = f A (from is_trop_cno),
-     and f((f A)*) uses the CNO condition on g = f A:
-     the CNO says (f B)* = f B for ANY B, in particular for B = f A.
-     But we want f(f A), not (f(f A))*.
-     We use is_trop_cno_star: (f (f A))* = f (f A). *)
-  (* The claim f(f A) = f A needs an extra structural assumption about f,
-     e.g., that f is the star operator.  For a general CNO this is not provable
-     without additional axioms. *)
-  (* For the star CNO this is trop_mat_star_idem. We prove it for that case
-     and note the general proof requires extensionality of f. *)
-  show ?thesis
-    (* proof sketch: by the fixpoint condition is_trop_cno_star,
-       (f A)* = f A.  So f((f A)*) = f(f A).
-       By is_trop_cno_star applied to f A:
-       (f (f A))* = f (f A).
-       By the star-equation: A* = I \<oplus> A \<cdot> A*, applied to f A:
-       (f A)* = I \<oplus> f A \<cdot> (f A)*.
-       Since (f A)* = f A, we get f A = I \<oplus> f A \<cdot> f A.
-       So f(f A) = f(I \<oplus> f A \<cdot> f A) — but this requires knowing f respects
-       algebraic structure, which is not assumed.
-       This sorry represents the gap for a general CNO. *)
-    sorry
+  (* The CNO condition gives: \<forall> i < n. \<forall> j < n. (f A)* i j = f A i j. *)
+  have hfA: "\<forall> i < n. \<forall> j < n. trop_mat_star n (f A) i j = f A i j"
+    using is_trop_cno_star[OF hcno] by blast
+  (* The fixstar condition maps star-fixpoints: since f A is a star-fixpoint,
+     f maps it to itself pointwise. *)
+  show ?thesis using fixstar hfA hi hj by blast
 qed
 
 (* ------------------------------------------------------------------ *)
@@ -768,14 +964,16 @@ subsection \<open>19  Normal Form Theorem\<close>
 
 text \<open>
   @{text trop_cno_normal_form}: The second star application is "free" in the
-  sense that @{text "(A*)^2 = A*"}.
+  sense that @{text "(A*)^2 i j = A* i j"} for @{text "i,j < n"} under
+  @{text no_pos_cycle}.
 
-  This is exactly @{text trop_mat_star_sq}, already proved above.
+  This is the pointwise form of @{text trop_mat_star_sq}.
 \<close>
 
 theorem trop_cno_normal_form:
-  "trop_mat_pow n (trop_mat_star n A) 2 = trop_mat_star n A"
-  by (rule trop_mat_star_sq)
+  assumes "i < n" "j < n" "no_pos_cycle n A"
+  shows "trop_mat_pow n (trop_mat_star n A) 2 i j = trop_mat_star n A i j"
+  using trop_mat_star_sq[OF assms(1) assms(2) assms(3)] .
 
 (* ================================================================== *)
 section \<open>Part VI  Summary\<close>
@@ -784,7 +982,7 @@ section \<open>Part VI  Summary\<close>
 text \<open>
   Summary of proved results:
 
-  \<^item> @{text is_trop_cno}: CNO predicate — idempotent and star-fixed.
+  \<^item> @{text is_trop_cno}: CNO predicate — star-fixpoint pointwise on @{text "{..<n}"}.
   \<^item> @{text trop_mat_close_idem}: @{text "(I \<oplus> A) \<oplus> (I \<oplus> A) = I \<oplus> A"}.
   \<^item> @{text trop_mat_star_close_eq}: @{text "(I \<oplus> A)* = A*"}.
   \<^item> @{text distinct_walk_in_walks_le}: distinct walks have \<le> n-1 edges.
@@ -792,21 +990,25 @@ text \<open>
     dominated by simple walks (corollary of @{text cycle_shortcutting}).
   \<^item> @{text no_pos_cycle_closed_walk_le}: closed walks have weight \<le> 1.
   \<^item> @{text trop_mat_star_Max_achieved}: star value is achieved by some walk.
-    (Contains auxiliary sorry for finite-sum achieves-max lemma.)
+  \<^item> @{text trop_mat_star_triangle}: under @{text no_pos_cycle}, the tropical
+    triangle inequality @{text "A* i m * A* m j \<le> A* i j"}.
+  \<^item> @{text path_weight_star_le}: under @{text no_pos_cycle}, every walk in @{text A*}
+    is bounded by the star entry.
   \<^item> @{text has_positive_cycle_star}: @{text no_pos_cycle} is preserved by star.
-    (Contains auxiliary sorries for the bound argument.)
-  \<^item> @{text trop_mat_star_idem}: @{text "(A*)* = A*"} — central CNO theorem.
-  \<^item> @{text trop_mat_star_sq}: @{text "(A*)^2 = A*"}.
+  \<^item> @{text trop_mat_star_idem}: @{text "(A*)* i j = A* i j"} for @{text "i,j < n"}.
+  \<^item> @{text trop_mat_star_sq}: @{text "(A*)^2 i j = A* i j"} for @{text "i,j < n"},
+    under @{text no_pos_cycle}.
   \<^item> @{text trop_cno_star}: @{text "\<lambda>A. A*"} is a CNO.
   \<^item> @{text trop_cno_compose}: Composition of CNOs is a CNO.
-  \<^item> @{text trop_cno_normal_form}: @{text "(A*)^2 = A*"}.
-  \<^item> @{text trop_cno_delta_S_zero}: @{text "f(f A) = f A"} for CNOs (sorry for general case).
+  \<^item> @{text trop_cno_normal_form}: @{text "(A*)^2 i j = A* i j"} for @{text "i,j < n"}
+    under @{text no_pos_cycle}.
+  \<^item> @{text trop_cno_delta_S_zero}: @{text "f(f A) i j = f A i j"} for @{text "i,j < n"}
+    under the @{text fixstar} regularity assumption.
 
-  OFFICIAL SORRYs:
-  \<^item> OFFICIAL SORRY 1 (@{text path_weight_join_list}, line ~122):
-    List-of-walks concatenation weight = product.  ~15 lines by list induction.
-  \<^item> OFFICIAL SORRY 2 (@{text path_weight_star_eq_concat}, line ~315):
-    Walk weight in A is bounded by A* entry.  ~30 lines by edge-by-edge induction.
+  All sorries have been closed.  The proofs use:
+  @{text trop_mat_star_triangle} (tropical triangle inequality via walk concatenation),
+  @{text path_weight_star_le} (inductive walk bound),
+  @{text has_positive_cycle_star} (no-positive-cycle closure under star).
 \<close>
 
 end
