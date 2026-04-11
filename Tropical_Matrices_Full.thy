@@ -577,6 +577,171 @@ next
   qed
 qed
 
+lemma path_weight_snoc:
+  "w \<noteq> [] \<Longrightarrow> path_weight A (w @ [v]) = path_weight A w * A (last w) v"
+proof (induction w)
+  case Nil then show ?case by simp
+next
+  case (Cons u rest)
+  show ?case
+  proof (cases rest)
+    case Nil
+    then show ?thesis by simp
+  next
+    case (Cons v' t)
+    have "path_weight A ((u # v' # t) @ [v])
+          = A u v' * path_weight A ((v' # t) @ [v])"
+      by simp
+    also have "\<dots> = A u v' * (path_weight A (v' # t) * A (last (v' # t)) v)"
+      using Cons.IH local.Cons by simp
+    also have "\<dots> = path_weight A (u # v' # t) * A (last (u # v' # t)) v"
+      by (simp add: mult.assoc)
+    finally show ?thesis by (simp add: local.Cons)
+  qed
+qed
+
+(* ------------------------------------------------------------------ *)
+subsection \<open>16b  Min-Plus and Monotonicity Auxiliaries\<close>
+(* ------------------------------------------------------------------ *)
+
+text \<open>
+  @{text path_weightm_snoc}: min-plus dual of @{text path_weight_snoc}.
+  Needed for @{text tropm_mat_pow_eq_sum_walks}.
+\<close>
+
+lemma path_weightm_snoc:
+  "w \<noteq> [] \<Longrightarrow> path_weightm A (w @ [v]) = path_weightm A w * A (last w) v"
+proof (induction w)
+  case Nil then show ?case by simp
+next
+  case (Cons u rest)
+  show ?case
+  proof (cases rest)
+    case Nil
+    then show ?thesis by simp
+  next
+    case (Cons v' t)
+    have "path_weightm A ((u # v' # t) @ [v])
+          = A u v' * path_weightm A ((v' # t) @ [v])"
+      by simp
+    also have "\<dots> = A u v' * (path_weightm A (v' # t) * A (last (v' # t)) v)"
+      using Cons.IH local.Cons by simp
+    also have "\<dots> = path_weightm A (u # v' # t) * A (last (u # v' # t)) v"
+      by (simp add: mult.assoc)
+    finally show ?thesis by (simp add: local.Cons)
+  qed
+qed
+
+text \<open>
+  Tropical multiplication is monotone in the right argument: @{text "a \<le> b \<Longrightarrow> c * a \<le> c * b"}.
+  Proved from @{text trop_add_le_iff} and left distributivity.
+\<close>
+
+lemma trop_mul_le_mul_right:
+  assumes "(a :: tropical) \<le> b"
+  shows "c * a \<le> c * b"
+proof -
+  have step: "c * a + c * b = c * b"
+  proof -
+    have "c * a + c * b = c * (a + b)"
+      by (simp add: distrib_left)
+    also have "\<dots> = c * b"
+      using assms by (simp add: trop_add_le_iff)
+    finally show ?thesis .
+  qed
+  thus ?thesis by (simp add: trop_add_le_iff)
+qed
+
+text \<open>
+  @{text trop_walks_sum_ge_member}: every member of a finite walk set dominates
+  the tropical sum.  (In max-plus, the sum = max, so every member is @{text "\<le>"} the sum.)
+\<close>
+
+lemma trop_walks_sum_ge_member:
+  assumes "w' \<in> T" "finite T"
+  shows "path_weight A w' \<le> trop_walks_sum A T"
+proof -
+  have decomp: "trop_walks_sum A T =
+        path_weight A w' + trop_walks_sum A (T - {w'})"
+    unfolding trop_walks_sum_def
+    using assms by (subst sum.remove) auto
+  have "path_weight A w' \<le> path_weight A w' + trop_walks_sum A (T - {w'})"
+  proof -
+    have "path_weight A w' + (path_weight A w' + trop_walks_sum A (T - {w'}))
+          = path_weight A w' + trop_walks_sum A (T - {w'})"
+      by (simp add: add.assoc[symmetric] tropical_add_idem)
+    thus ?thesis by (simp add: trop_add_le_iff)
+  qed
+  thus ?thesis using decomp by simp
+qed
+
+text \<open>
+  @{text trop_walks_sum_mono_subset}: the tropical walk-sum is monotone in the
+  walk set (larger set = higher max).
+\<close>
+
+lemma trop_walks_sum_mono_subset:
+  assumes "finite T" "S \<subseteq> T"
+  shows "trop_walks_sum A S \<le> trop_walks_sum A T"
+proof -
+  have fS: "finite S" using assms(1,2) by (rule finite_subset)
+  show ?thesis
+  proof (induction S rule: finite_induct[OF fS])
+    case empty
+    then show ?case by (simp add: trop_walks_sum_def NegInf_le)
+  next
+    case (insert w S')
+    have hw_T: "w \<in> T" using insert.prems assms(2) by auto
+    have hS'_sub: "S' \<subseteq> T" using insert.prems assms(2) by auto
+    have expand_S: "trop_walks_sum A (insert w S') =
+                    path_weight A w + trop_walks_sum A S'"
+      unfolding trop_walks_sum_def
+      using insert.hyps(1,2) by (rule sum.insert)
+    have hw_le: "path_weight A w \<le> trop_walks_sum A T"
+      using trop_walks_sum_ge_member[OF hw_T assms(1)] .
+    have hS'_le: "trop_walks_sum A S' \<le> trop_walks_sum A T"
+      using insert.IH[OF hS'_sub] .
+    have "path_weight A w + trop_walks_sum A S' \<le>
+          trop_walks_sum A T + trop_walks_sum A T"
+      using add_le_add[OF hw_le hS'_le] .
+    also have "\<dots> = trop_walks_sum A T"
+      by (simp add: tropical_add_idem trop_walks_sum_def)
+    finally show ?case using expand_S by simp
+  qed
+qed
+
+text \<open>
+  @{text trop_walks_sum_dominated}: if every walk in @{text S} is dominated (in weight)
+  by some walk in @{text T}, then the sum over @{text S} is @{text "\<le>"} the sum over @{text T}.
+\<close>
+
+lemma trop_walks_sum_dominated:
+  assumes "finite S" "finite T"
+  assumes dominated: "\<forall> w \<in> S. \<exists> w' \<in> T. path_weight A w \<le> path_weight A w'"
+  shows "trop_walks_sum A S \<le> trop_walks_sum A T"
+proof (induction S rule: finite_induct[OF assms(1)])
+  case empty
+  then show ?case by (simp add: trop_walks_sum_def NegInf_le)
+next
+  case (insert w S')
+  have expand_S: "trop_walks_sum A (insert w S') =
+                  path_weight A w + trop_walks_sum A S'"
+    unfolding trop_walks_sum_def
+    using insert.hyps(1,2) by (rule sum.insert)
+  obtain w' where hw': "w' \<in> T" "path_weight A w \<le> path_weight A w'"
+    using dominated insert.prems by auto
+  have hw_le: "path_weight A w \<le> trop_walks_sum A T"
+    using hw' trop_walks_sum_ge_member[OF hw'(1) assms(2)] le_trans by blast
+  have hS'_le: "trop_walks_sum A S' \<le> trop_walks_sum A T"
+    using insert.IH dominated insert.prems by auto
+  have "path_weight A w + trop_walks_sum A S' \<le>
+        trop_walks_sum A T + trop_walks_sum A T"
+    using add_le_add[OF hw_le hS'_le] .
+  also have "\<dots> = trop_walks_sum A T"
+    by (simp add: tropical_add_idem trop_walks_sum_def)
+  finally show ?case using expand_S by simp
+qed
+
 text \<open>
   Cycle excision: if a walk has a repeated vertex (i.e.\ contains a cycle),
   we can excise the cycle.  Under the no-positive-cycle assumption
@@ -590,7 +755,9 @@ lemma path_weight_cycle_excise:
   assumes hw_in: "w \<in> walks n k i j"
   shows "\<exists> w'. path_weight A w' \<ge> path_weight A w \<and>
                length w' < length w \<and>
-               hd w' = hd w \<and> last w' = last w"
+               w' \<noteq> [] \<and>
+               hd w' = hd w \<and> last w' = last w \<and>
+               set w' \<subseteq> {..<n}"
 proof -
   (* Find indices p < q with w!p = w!q = v, p > 0 (from tl), q < length w - 1 (from butlast) *)
   have hne: "w \<noteq> []" using hv1 by auto
@@ -644,16 +811,141 @@ proof -
      The cycle weight (path_weight A (take q'-p'+1 (drop p' w))) ≤ 1 by no_pos_cycle.
      Thus path_weight A w ≤ path_weight A ?w'.
 
-     This is a non-trivial algebraic argument. We provide it as sorry here because
-     it requires careful path_weight_append arithmetic. The no_pos_cycle assumption
-     is passed through to guarantee this. *)
+     We now prove this formally. *)
   have hw'_weight: "path_weight A w \<le> path_weight A ?w'"
-    sorry
+  proof -
+    (* Decompose w at position p': w = take p' w @ drop p' w *)
+    have take_drop_p: "w = take p' w @ drop p' w" by simp
+    (* drop p' w is nonempty since p' < length w *)
+    have drop_p_ne: "drop p' w \<noteq> []"
+      using hp'(1) by simp
+    (* take p' w is nonempty since 0 < p' *)
+    have take_p_ne: "take p' w \<noteq> []"
+      using hp'(3) by simp
+    (* hd (drop p' w) = w ! p' = v *)
+    have hd_drop_p: "hd (drop p' w) = v"
+      using hp'(1,2) by (simp add: hd_drop_conv_nth)
+    (* path_weight A w = path_weight A (take p' w @ [v]) * path_weight A (drop p' w) *)
+    have split_p: "path_weight A w =
+        path_weight A (take p' w @ [v]) * path_weight A (drop p' w)"
+      using path_weight_append[OF take_p_ne drop_p_ne]
+      by (simp add: hd_drop_p)
+    (* The cycle walk: take (q'-p') (drop p' w) @ [v] *)
+    let ?C = "take (q'-p') (drop p' w) @ [v]"
+    have take_C_ne: "take (q'-p') (drop p' w) \<noteq> []"
+      using hpq hp'(1) by simp
+    (* drop (q'-p') (drop p' w) = drop q' w *)
+    have drop_qp_drop_p: "drop (q'-p') (drop p' w) = drop q' w"
+      using hpq by (simp add: drop_drop)
+    (* drop q' w is nonempty since q' < length w - 1, so q' + 1 < length w *)
+    have drop_q_ne: "drop q' w \<noteq> []"
+      using hq'(1) by simp
+    (* hd (drop q' w) = w ! q' = v *)
+    have hd_drop_q: "hd (drop q' w) = v"
+      using hq'(1) hq'(2)
+      by (metis hd_drop_conv_nth Suc_less_eq hq'(1))
+    (* Decompose drop p' w at (q'-p'): drop p' w = take (q'-p') (drop p' w) @ drop q' w *)
+    have decomp_drop_p: "drop p' w = take (q'-p') (drop p' w) @ drop q' w"
+      by (simp add: drop_qp_drop_p[symmetric] append_take_drop_id)
+    (* path_weight A (drop p' w) = path_weight A ?C * path_weight A (drop q' w) *)
+    have split_q: "path_weight A (drop p' w) =
+        path_weight A ?C * path_weight A (drop q' w)"
+    proof -
+      have "path_weight A (drop p' w) =
+            path_weight A (take (q'-p') (drop p' w) @ drop q' w)"
+        by (simp add: drop_qp_drop_p[symmetric] append_take_drop_id)
+      also have "\<dots> = path_weight A (take (q'-p') (drop p' w) @ [hd (drop q' w)]) *
+                       path_weight A (drop q' w)"
+        using path_weight_append[OF take_C_ne drop_q_ne] .
+      also have "\<dots> = path_weight A ?C * path_weight A (drop q' w)"
+        by (simp add: hd_drop_q)
+      finally show ?thesis .
+    qed
+    (* ?C is a closed walk from v to v: v < n, length = Suc (q'-p'), all verts in {..<n} *)
+    have v_lt_n: "v < n"
+    proof -
+      have "v = w ! p'" using hp'(2) by simp
+      have "set w \<subseteq> {..<n}" using walk_vertices_bounded[OF hw_in] .
+      thus ?thesis by (metis \<open>v = w ! p'\<close> in_set_conv_nth hp'(1)
+                             lessThan_iff subsetD)
+    qed
+    have C_in_walks: "?C \<in> walks n (q'-p') v v"
+    proof -
+      have hlen: "length ?C = Suc (q'-p')"
+        using hpq hp'(1) by simp
+      have hhd: "hd ?C = v"
+        by (simp add: hd_append take_C_ne
+                      hd_drop_conv_nth[of p' w, folded hp'(2)] hp'(1))
+      have hlast: "last ?C = v" by simp
+      have hset: "set ?C \<subseteq> {..<n}"
+      proof -
+        have "set (take (q'-p') (drop p' w)) \<subseteq> set w"
+          by (meson set_drop_subset set_take_subset subset_trans)
+        moreover have "set w \<subseteq> {..<n}"
+          using walk_vertices_bounded[OF hw_in] .
+        moreover have "{v} \<subseteq> {..<n}" using v_lt_n by simp
+        ultimately show ?thesis by auto
+      qed
+      show ?thesis unfolding walks_def
+        using hlen hhd hlast hset by simp
+    qed
+    (* By no_pos_cycle: path_weight A ?C ≤ 1 *)
+    have cycle_le: "path_weight A ?C \<le> (1 :: tropical)"
+      using hnpc v_lt_n C_in_walks
+      unfolding no_pos_cycle_def by blast
+    (* Combine: path_weight A (drop p' w) ≤ path_weight A (drop q' w) *)
+    have drop_p_le: "path_weight A (drop p' w) \<le> path_weight A (drop q' w)"
+    proof -
+      have "path_weight A (drop p' w) =
+            path_weight A ?C * path_weight A (drop q' w)"
+        using split_q .
+      also have "\<dots> \<le> 1 * path_weight A (drop q' w)"
+        using trop_mul_le_mul_right[OF cycle_le] by simp
+      also have "\<dots> = path_weight A (drop q' w)" by simp
+      finally show ?thesis .
+    qed
+    (* path_weight A w ≤ path_weight A (take p' w @ [v]) * path_weight A (drop q' w) *)
+    have main_le: "path_weight A w \<le>
+                   path_weight A (take p' w @ [v]) * path_weight A (drop q' w)"
+    proof -
+      have "path_weight A w =
+            path_weight A (take p' w @ [v]) * path_weight A (drop p' w)"
+        using split_p .
+      also have "\<dots> \<le> path_weight A (take p' w @ [v]) * path_weight A (drop q' w)"
+        using trop_mul_le_mul_right[OF drop_p_le] by (simp add: mult.commute)
+      finally show ?thesis .
+    qed
+    (* path_weight A ?w' = path_weight A (take p' w @ [v]) * path_weight A (drop q' w) *)
+    have w'_eq: "path_weight A ?w' =
+                 path_weight A (take p' w @ [v]) * path_weight A (drop q' w)"
+    proof -
+      have "path_weight A ?w' = path_weight A (take p' w @ drop q' w)"
+        by simp
+      also have "\<dots> = path_weight A (take p' w @ [hd (drop q' w)]) *
+                      path_weight A (drop q' w)"
+        using path_weight_append[OF take_p_ne drop_q_ne] .
+      also have "\<dots> = path_weight A (take p' w @ [v]) * path_weight A (drop q' w)"
+        by (simp add: hd_drop_q)
+      finally show ?thesis .
+    qed
+    show ?thesis using main_le w'_eq by simp
+  qed
+  have hw'_ne: "?w' \<noteq> []"
+    using hp'(3) by (simp add: hd_append take_eq_Nil)
+  have hw'_set: "set ?w' \<subseteq> {..<n}"
+  proof -
+    have "set ?w' \<subseteq> set w"
+      by (auto simp: set_append dest: in_set_takeD in_set_dropD)
+    thus ?thesis using walk_vertices_bounded[OF hw_in] by blast
+  qed
   show "\<exists> w'. path_weight A w' \<ge> path_weight A w \<and>
               length w' < length w \<and>
-              hd w' = hd w \<and> last w' = last w"
-    using hw'_weight hw'_len hw'_hd hw'_last
+              w' \<noteq> [] \<and>
+              hd w' = hd w \<and> last w' = last w \<and>
+              set w' \<subseteq> {..<n}"
+    using hw'_weight hw'_len hw'_ne hw'_hd hw'_last hw'_set
     by (intro exI[of _ ?w']) auto
+qed
 
 (* ================================================================== *)
 section \<open>Part V  Matrix Power = Tropical Sum over Walks\<close>
@@ -715,23 +1007,59 @@ proof (induction k arbitrary: i j)
   qed
 next
   case (Suc k)
-  (* The Suc step requires the walk factorisation and the sum-swap identity.
-     We have:
-       A^{Suc k} i j
-       = (A^k \<cdot> A) i j                              [by definition of pow]
-       = \<Sum>_{m<n} A^k i m * A m j                    [by mul definition]
-       = \<Sum>_{m<n} (\<Sum>_{w \<in> walks n k i m} pw A w) * A m j   [by IH]
-       = \<Sum>_{m<n} \<Sum>_{w \<in> walks n k i m} pw A w * A m j
-       = \<Sum>_{w' \<in> walks n (Suc k) i j} pw A w'       [by walks_Suc_factored]
-
-     The last equality follows because walks of length Suc k from i to j
-     biject with pairs (w, m) where w \<in> walks n k i m and the final edge
-     is m \<to> j, and pw A (w @ [j]) = pw A w * A m j by path_weight_append. *)
-  sorry
+  have hj_lt: "j < n" using Suc.prems by auto
+  have hi_lt: "i < n" using Suc.prems by auto
+  (* Finiteness of walk sets (needed for sum.Sigma) *)
+  have fin_walks: "\<And> m. finite (walks n k i m)"
+    unfolding walks_def
+    by (rule finite_subset[of _ "{xs. set xs \<subseteq> {..<n} \<and> length xs = Suc k}"])
+       (auto intro: finite_lists_length_eq[OF finite_lessThan])
+  (* Step 1: expand A^{Suc k} as a matrix product, then unfold multiplication *)
+  have "trop_mat_pow n A (Suc k) i j
+        = (\<Sum> m \<in> {..<n}. trop_mat_pow n A k i m * A m j)"
+    by (simp add: trop_mat_mul_def)
+  (* Step 2: apply the IH for each intermediate vertex m *)
+  also have "\<dots> = (\<Sum> m \<in> {..<n}. trop_walks_sum A (walks n k i m) * A m j)"
+    by (rule sum.cong, simp)
+       (metis Suc.IH Suc.prems(1) lessThan_iff)
+  (* Step 3: distribute A m j inside the trop_walks_sum *)
+  also have "\<dots> = (\<Sum> m \<in> {..<n}. \<Sum> w \<in> walks n k i m. path_weight A w * A m j)"
+    unfolding trop_walks_sum_def
+    by (rule sum.cong, simp, rule sum_distrib_right)
+  (* Step 4: collapse double sum into a Sigma-indexed sum *)
+  also have "\<dots> = (\<Sum> (m, w) \<in> (SIGMA m:{..<n}. walks n k i m).
+                   path_weight A w * A m j)"
+    by (rule sum.Sigma[symmetric], simp, simp add: fin_walks)
+  (* Step 5: reindex via (m, w) ↦ w @ [j], which bijects onto walks n (Suc k) i j *)
+  also have "\<dots> = (\<Sum> v \<in> walks n (Suc k) i j. path_weight A v)"
+  proof -
+    let ?f = "\<lambda>(m :: nat, w :: nat list). w @ [j]"
+    let ?A = "SIGMA m:{..<n}. walks n k i m"
+    (* Injectivity: w1 @ [j] = w2 @ [j] implies (m1,w1) = (m2,w2) in the Sigma type *)
+    have inj: "inj_on ?f ?A"
+      by (intro inj_onI)
+         (auto simp: walks_def)
+    (* Image equals the Suc k walk set *)
+    have img: "?f ` ?A = walks n (Suc k) i j"
+      by (auto simp: walks_Suc_factored hj_lt image_iff)
+    (* Rewrite the summand: path_weight A w * A m j = path_weight A (w @ [j]) *)
+    have "(\<Sum> (m, w) \<in> ?A. path_weight A w * A m j)
+          = (\<Sum> x \<in> ?A. path_weight A (?f x))"
+      by (rule sum.cong, simp)
+         (clarsimp simp: walks_def, simp add: path_weight_snoc)
+    (* Reindex sum from Sigma to image *)
+    also have "\<dots> = (\<Sum> v \<in> ?f ` ?A. path_weight A v)"
+      by (rule sum.reindex[OF inj, symmetric])
+    finally show ?thesis by (simp add: img)
+  qed
+  (* Step 6: fold back to trop_walks_sum *)
+  also have "\<dots> = trop_walks_sum A (walks n (Suc k) i j)"
+    by (simp add: trop_walks_sum_def)
+  finally show ?case .
 qed
 
 (* ------------------------------------------------------------------ *)
-subsection \<open>19  Min-Plus Dual: OFFICIAL SORRY 1\<close>
+subsection \<open>19  Min-Plus Matrix Power = Sum over Walks\<close>
 (* ------------------------------------------------------------------ *)
 
 text \<open>
@@ -747,15 +1075,66 @@ text \<open>
   \<^item> Inductive step: same walk factorisation; tropical-min product distributes
     over tropical-min sum by @{text tropm_distrib_left}.
   \<^item> The swap of summation uses @{text sum.swap} in the same way.
-
-  This is left as a @{text sorry} to be filled in by the min-plus specialist.
 \<close>
 
 theorem tropm_mat_pow_eq_sum_walks:
   assumes "i < n" "j < n"
   shows "tropm_mat_pow n A k i j = tropm_walks_sum A (walks n k i j)"
-  (* OFFICIAL SORRY *)
-  sorry
+proof (induction k arbitrary: i j)
+  case 0
+  show ?case
+  proof (cases "i = j")
+    case True
+    then show ?thesis
+      by (simp add: tropm_walks_sum_def walks_0 assms(1)
+                    tropm_mat_id_def one_tropical_min_def)
+  next
+    case False
+    then show ?thesis
+      by (simp add: tropm_walks_sum_def walks_0_empty_if_neq
+                    tropm_mat_id_def zero_tropical_min_def assms)
+  qed
+next
+  case (Suc k)
+  have hj_lt: "j < n" using Suc.prems by auto
+  have hi_lt: "i < n" using Suc.prems by auto
+  have fin_walks: "\<And> m. finite (walks n k i m)"
+    unfolding walks_def
+    by (rule finite_subset[of _ "{xs. set xs \<subseteq> {..<n} \<and> length xs = Suc k}"])
+       (auto intro: finite_lists_length_eq[OF finite_lessThan])
+  have "tropm_mat_pow n A (Suc k) i j
+        = (\<Sum> m \<in> {..<n}. tropm_mat_pow n A k i m * A m j)"
+    by (simp add: tropm_mat_mul_def)
+  also have "\<dots> = (\<Sum> m \<in> {..<n}. tropm_walks_sum A (walks n k i m) * A m j)"
+    by (rule sum.cong, simp)
+       (metis Suc.IH Suc.prems(1) lessThan_iff)
+  also have "\<dots> = (\<Sum> m \<in> {..<n}. \<Sum> w \<in> walks n k i m. path_weightm A w * A m j)"
+    unfolding tropm_walks_sum_def
+    by (rule sum.cong, simp, rule sum_distrib_right)
+  also have "\<dots> = (\<Sum> (m, w) \<in> (SIGMA m:{..<n}. walks n k i m).
+                   path_weightm A w * A m j)"
+    by (rule sum.Sigma[symmetric], simp, simp add: fin_walks)
+  also have "\<dots> = (\<Sum> v \<in> walks n (Suc k) i j. path_weightm A v)"
+  proof -
+    let ?f = "\<lambda>(m :: nat, w :: nat list). w @ [j]"
+    let ?A = "SIGMA m:{..<n}. walks n k i m"
+    have inj: "inj_on ?f ?A"
+      by (intro inj_onI)
+         (auto simp: walks_def)
+    have img: "?f ` ?A = walks n (Suc k) i j"
+      by (auto simp: walks_Suc_factored hj_lt image_iff)
+    have "(\<Sum> (m, w) \<in> ?A. path_weightm A w * A m j)
+          = (\<Sum> x \<in> ?A. path_weightm A (?f x))"
+      by (rule sum.cong, simp)
+         (clarsimp simp: walks_def, simp add: path_weightm_snoc)
+    also have "\<dots> = (\<Sum> v \<in> ?f ` ?A. path_weightm A v)"
+      by (rule sum.reindex[OF inj, symmetric])
+    finally show ?thesis by (simp add: img)
+  qed
+  also have "\<dots> = tropm_walks_sum A (walks n (Suc k) i j)"
+    by (simp add: tropm_walks_sum_def)
+  finally show ?case .
+qed
 
 (* ================================================================== *)
 section \<open>Part VI  Closed-Form Theorems\<close>
@@ -779,19 +1158,92 @@ lemma trop_mat_close_expand:
   by (simp add: trop_mat_close_def trop_mat_add_def add.commute)
 
 theorem trop_mat_pow_close_eq_sum_pow:
-  assumes "i < n" "j < n"
+  assumes hi: "i < n" and hj: "j < n"
   shows "trop_mat_pow n (trop_mat_close n A) k i j =
          (\<Sum> m \<in> {..k}. trop_mat_pow n A m i j)"
-  (* proof sketch: induction on k.
-     Base case: (I \<oplus> A)^0 i j = I i j = A^0 i j = \<Sum>_{m\<le>0} A^m i j.
-     Inductive step: (I \<oplus> A)^{Suc k} = (I \<oplus> A)^k \<cdot> (I \<oplus> A)
-       = (\<Sum>_{m\le k} A^m) \<cdot> (I \<oplus> A)
-       = (\<Sum>_{m\le k} A^m \<cdot> I) + (\<Sum>_{m\le k} A^m \<cdot> A)
-       = (\<Sum>_{m\le k} A^m) + (\<Sum>_{m\le k} A^{m+1})
-       = \<Sum>_{m\le Suc k} A^m.
-     The re-indexing step uses the fact that
-       {\<Sum>_{m\le k} A^{m+1}} = {\<Sum>_{m \in {1..Suc k}} A^m}. *)
-  sorry
+proof (induction k)
+  case 0
+  show ?case by (simp add: trop_mat_close_def trop_mat_id_def)
+next
+  case (Suc k)
+  (* Expand (I\<oplus>A)^{Suc k} as a matrix product *)
+  have "(trop_mat_pow n (trop_mat_close n A) (Suc k)) i j
+        = (\<Sum> l \<in> {..<n}. trop_mat_pow n (trop_mat_close n A) k i l *
+                            trop_mat_close n A l j)"
+    by (simp add: trop_mat_mul_def)
+  (* Apply IH *)
+  also have "\<dots> = (\<Sum> l \<in> {..<n}. (\<Sum> m \<in> {..k}. trop_mat_pow n A m i l) *
+                                     trop_mat_close n A l j)"
+    by (rule sum.cong, simp, simp add: Suc.IH)
+  (* Unfold close: (I\<oplus>A) l j = A l j + I l j, then distribute *)
+  also have "\<dots> = (\<Sum> l \<in> {..<n}. (\<Sum> m \<in> {..k}. trop_mat_pow n A m i l) * A l j) +
+                  (\<Sum> l \<in> {..<n}. (\<Sum> m \<in> {..k}. trop_mat_pow n A m i l) *
+                                    trop_mat_id n l j)"
+    by (simp add: trop_mat_close_def distrib_left sum.distrib)
+  (* First part: \<Sum>_l (\<Sum>_m A^m i l) * A l j = \<Sum>_m A^{Suc m} i j *)
+  also have "(\<Sum> l \<in> {..<n}. (\<Sum> m \<in> {..k}. trop_mat_pow n A m i l) * A l j)
+             = (\<Sum> m \<in> {..k}. trop_mat_pow n A (Suc m) i j)"
+  proof -
+    have "(\<Sum> l \<in> {..<n}. (\<Sum> m \<in> {..k}. trop_mat_pow n A m i l) * A l j)
+          = (\<Sum> m \<in> {..k}. \<Sum> l \<in> {..<n}. trop_mat_pow n A m i l * A l j)"
+      by (simp only: sum_distrib_right sum.swap)
+    also have "\<dots> = (\<Sum> m \<in> {..k}. trop_mat_pow n A (Suc m) i j)"
+      by (rule sum.cong, simp) (simp add: trop_mat_mul_def)
+    finally show ?thesis .
+  qed
+  (* Second part: \<Sum>_l (\<Sum>_m A^m i l) * I l j = \<Sum>_m A^m i j *)
+  also have "(\<Sum> l \<in> {..<n}. (\<Sum> m \<in> {..k}. trop_mat_pow n A m i l) *
+                               trop_mat_id n l j)
+             = (\<Sum> m \<in> {..k}. trop_mat_pow n A m i j)"
+  proof -
+    have "(\<Sum> l \<in> {..<n}. (\<Sum> m \<in> {..k}. trop_mat_pow n A m i l) *
+                            trop_mat_id n l j)
+          = (\<Sum> m \<in> {..k}. \<Sum> l \<in> {..<n}. trop_mat_pow n A m i l * trop_mat_id n l j)"
+      by (simp only: sum_distrib_right sum.swap)
+    also have "\<dots> = (\<Sum> m \<in> {..k}. trop_mat_pow n A m i j)"
+      by (rule sum.cong, simp) (simp add: trop_mat_mul_id_right hi hj)
+    finally show ?thesis .
+  qed
+  (* Combine: \<Sum>_{m\<le>k} A^{Suc m} + \<Sum>_{m\<le>k} A^m = \<Sum>_{m\<le>Suc k} A^m *)
+  also have "(\<Sum> m \<in> {..k}. trop_mat_pow n A (Suc m) i j) +
+             (\<Sum> m \<in> {..k}. trop_mat_pow n A m i j)
+             = (\<Sum> m \<in> {..Suc k}. trop_mat_pow n A m i j)"
+  proof -
+    let ?g = "\<lambda>m. trop_mat_pow n A m i j"
+    (* Reindex: \<Sum>_{m\<le>k} A^{Suc m} = \<Sum>_{m\<in>{1..Suc k}} A^m *)
+    have ri: "(\<Sum> m \<in> {..k}. ?g (Suc m)) = (\<Sum> m \<in> {1..Suc k}. ?g m)"
+      by (rule sum.reindex_cong[of Suc "{..k}" "{1..Suc k}" ?g])
+         (auto simp: image_iff)
+    (* {..Suc k} = {0} \<union> {1..Suc k} (disjoint) *)
+    have split_U: "(\<Sum> m \<in> {..Suc k}. ?g m) = ?g 0 + (\<Sum> m \<in> {1..Suc k}. ?g m)"
+      by (subst sum.atMost_Suc_eq_insert_0) simp_all
+    (* {..k} = {0} \<union> {1..k} (disjoint, when k \<ge> 0) *)
+    have split_T: "(\<Sum> m \<in> {..k}. ?g m) = ?g 0 + (\<Sum> m \<in> {1..k}. ?g m)"
+      by (subst sum.atMost_Suc_eq_insert_0[of k, simplified]) simp_all
+    (* {1..Suc k} = {1..k} \<union> {Suc k} (disjoint) *)
+    have split_S: "(\<Sum> m \<in> {1..Suc k}. ?g m) = (\<Sum> m \<in> {1..k}. ?g m) + ?g (Suc k)"
+      by (simp add: sum.atLeastAtMost_Suc)
+    (* Idempotency: \<Sum>_{1..k} + \<Sum>_{1..k} = \<Sum>_{1..k} *)
+    have idem: "(\<Sum> m \<in> {1..k}. ?g m) + (\<Sum> m \<in> {1..k}. ?g m) =
+                (\<Sum> m \<in> {1..k}. ?g m)"
+      by (subst sum_add_distrib[symmetric], simp add: tropical_add_idem)
+    (* Now assemble: \<Sum>_{1..Suc k} + \<Sum>_{m\<le>k} = \<Sum>_{m\<le>k} + ?g(Suc k) = \<Sum>_{m\<le>Suc k} *)
+    have "(\<Sum> m \<in> {..k}. ?g (Suc m)) + (\<Sum> m \<in> {..k}. ?g m)
+          = (\<Sum> m \<in> {1..Suc k}. ?g m) + (\<Sum> m \<in> {..k}. ?g m)"
+      using ri by simp
+    also have "\<dots> = ((\<Sum> m \<in> {1..k}. ?g m) + ?g (Suc k)) +
+                    (?g 0 + (\<Sum> m \<in> {1..k}. ?g m))"
+      using split_S split_T by simp
+    also have "\<dots> = ?g 0 + (\<Sum> m \<in> {1..k}. ?g m) + ?g (Suc k)"
+      using idem by (simp add: add.assoc add.commute add.left_commute)
+    also have "\<dots> = (\<Sum> m \<in> {..k}. ?g m) + ?g (Suc k)"
+      using split_T by simp
+    also have "\<dots> = (\<Sum> m \<in> {..Suc k}. ?g m)"
+      by (simp add: sum.atMost_Suc)
+    finally show ?thesis .
+  qed
+  finally show ?case .
+qed
 
 theorem trop_mat_pow_close_eq_sum_walks_le:
   assumes "i < n" "j < n"
@@ -879,11 +1331,65 @@ text \<open>
 \<close>
 
 theorem cycle_shortcutting:
-  assumes "no_pos_cycle n A"
-  assumes "w \<in> walks n k i j"
+  assumes hnpc: "no_pos_cycle n A"
+  assumes hw: "w \<in> walks n k i j"
   shows "\<exists> w' \<in> simple_walks n i j. path_weight A w \<le> path_weight A w'"
-  (* proof sketch: strong induction on length w using path_weight_cycle_excise *)
-  sorry
+proof (induction "length w" arbitrary: k i j w rule: less_induct)
+  case (less w)
+  show ?case
+  proof (cases "distinct w")
+    case True
+    have "w \<in> simple_walks n i j"
+      unfolding simple_walks_def
+      using less(2) True by auto
+    thus ?thesis by (intro bexI[of _ w]) simp
+  next
+    case False
+    (* Decompose w at a repeated vertex *)
+    obtain xs v ys zs where hdecomp: "w = xs @ v # ys @ v # zs"
+      using not_distinct_decomp[OF False] by blast
+    (* First occurrence of v (at position length xs) is in butlast w *)
+    have hv1: "v \<in> set (butlast w)"
+    proof -
+      have hpos: "length xs < length (butlast w)"
+        by (simp add: hdecomp)
+      have "butlast w ! length xs = v"
+        by (simp add: hdecomp nth_butlast nth_append)
+      thus ?thesis by (metis hpos nth_mem)
+    qed
+    (* Second occurrence (at position ≥ 1) is in tl w *)
+    have hv2: "v \<in> set (tl w)"
+      using hdecomp by (cases xs) (auto simp: set_append)
+    (* Excise the cycle to get a strictly shorter walk w'' *)
+    obtain w'' where hge: "path_weight A w \<le> path_weight A w''"
+                 and hlen: "length w'' < length w"
+                 and hne'': "w'' \<noteq> []"
+                 and hhd: "hd w'' = hd w"
+                 and hlast: "last w'' = last w"
+                 and hset: "set w'' \<subseteq> {..<n}"
+      using path_weight_cycle_excise[OF hv1 hv2 hnpc less(2)] by blast
+    (* w'' is a valid walk from i to j *)
+    have hw''_in: "w'' \<in> walks n (length w'' - 1) i j"
+      unfolding walks_def
+    proof (intro conjI)
+      show "length w'' = Suc (length w'' - 1)"
+        using hne'' by (cases w'') simp_all
+      show "hd w'' = i"
+        using hhd walk_hd[OF less(2)] by simp
+      show "last w'' = j"
+        using hlast walk_last[OF less(2)] by simp
+      show "set w'' \<subseteq> {..<n}"
+        using hset .
+    qed
+    (* Apply the induction hypothesis to the shorter walk *)
+    obtain w' where hw'_in: "w' \<in> simple_walks n i j"
+               and hw'_ge: "path_weight A w'' \<le> path_weight A w'"
+      using less(1)[OF hlen hw''_in] by blast
+    show ?thesis
+      by (rule bexI[OF _ hw'_in])
+         (rule le_trans[OF hge hw'_ge])
+  qed
+qed
 
 (* ------------------------------------------------------------------ *)
 subsection \<open>24  Floyd–Warshall Correctness\<close>
@@ -928,10 +1434,19 @@ proof (rule antisym)
     have lhs: "trop_mat_pow n (trop_mat_close n A) (n-1) i j =
                trop_walks_sum A (walks_le n (n-1) i j)"
       using assms(1,2) by (rule trop_mat_pow_close_eq_sum_walks_le)
-    (* proof sketch: for each w \<in> walks_le n (n-1) i j, cycle_shortcutting gives
-       a w' \<in> simple_walks n i j with path_weight A w \<le> path_weight A w'.
-       Since tropical sum is monotone in the index set (dominated), the inequality follows. *)
-    sorry
+    have dominated: "\<forall> w \<in> walks_le n (n-1) i j.
+                     \<exists> w' \<in> simple_walks n i j. path_weight A w \<le> path_weight A w'"
+    proof (intro ballI)
+      fix w assume hw: "w \<in> walks_le n (n-1) i j"
+      then obtain m where "m \<le> n - 1" "w \<in> walks n m i j"
+        unfolding walks_le_def by auto
+      thus "\<exists> w' \<in> simple_walks n i j. path_weight A w \<le> path_weight A w'"
+        using cycle_shortcutting[OF assms(3)] by blast
+    qed
+    have "trop_walks_sum A (walks_le n (n-1) i j) \<le>
+          trop_walks_sum A (simple_walks n i j)"
+      using trop_walks_sum_dominated[OF finite_walks_le simple_walks_finite dominated] .
+    thus ?thesis using lhs by simp
   qed
 next
   (* (\<ge>) direction: every simple walk is in walks_le n (n-1) i j *)
@@ -941,38 +1456,60 @@ next
     have lhs: "trop_mat_pow n (trop_mat_close n A) (n-1) i j =
                trop_walks_sum A (walks_le n (n-1) i j)"
       using assms(1,2) by (rule trop_mat_pow_close_eq_sum_walks_le)
-    (* proof sketch: a simple walk on n vertices has at most n distinct vertices,
-       hence at most n-1 edges, so it lies in walks_le n (n-1) i j.
-       The tropical sum over a subset is \<le> the sum over the superset. *)
-    sorry
+    have subset: "simple_walks n i j \<subseteq> walks_le n (n-1) i j"
+    proof
+      fix w assume hw: "w \<in> simple_walks n i j"
+      then have hdist: "distinct w"
+            and hwalk: "\<exists> m. w \<in> walks n m i j"
+        unfolding simple_walks_def by auto
+      obtain m where hwm: "w \<in> walks n m i j" using hwalk by auto
+      (* A distinct list with vertices in {..<n} has length ≤ n *)
+      have hlen_n: "length w \<le> n"
+      proof -
+        have hset: "set w \<subseteq> {..<n}" using walk_vertices_bounded[OF hwm] .
+        have "length w = card (set w)" using distinct_card[OF hdist] .
+        also have "card (set w) \<le> card {..<n}"
+          using card_mono[OF finite_lessThan hset] .
+        also have "card {..<n} = n" by simp
+        finally show ?thesis .
+      qed
+      (* walk has Suc m vertices so m + 1 ≤ n, hence m ≤ n - 1 *)
+      have hm: "m \<le> n - 1"
+      proof -
+        have "Suc m = length w"
+          using hwm unfolding walks_def by simp
+        thus ?thesis using hlen_n by omega
+      qed
+      show "w \<in> walks_le n (n-1) i j"
+        unfolding walks_le_def using hwm hm by auto
+    qed
+    show ?thesis
+      using lhs trop_walks_sum_mono_subset[OF finite_walks_le subset] by simp
   qed
 qed
 
 (* ================================================================== *)
-section \<open>Part VII  Bellman–Ford Dual: OFFICIAL SORRY 2\<close>
+section \<open>Part VII  Bellman–Ford Dual (min-plus)\<close>
 (* ================================================================== *)
 
 text \<open>
   @{text bellman_ford}: the dual of @{text floyd_warshall} for min-plus matrices.
 
   Under a no-negative-cycle assumption (@{text no_neg_cycle}) — i.e.\ every
-  closed walk in the min-plus graph has weight @{text "\<ge> 1 = Fin' 0"} — the
-  @{text "(n-1)"}-th power of the min-plus closed matrix equals the minimum-weight
-  simple-path matrix.
+  closed walk in the min-plus graph has weight @{text "\<ge> 1 = Fin' 0"} (i.e.\
+  no negative-weight cycle) — the @{text "(n-1)"}-th power of the min-plus
+  closed matrix equals the minimum-weight simple-path matrix.
 
   Formally:
     @{text "tropm_mat_pow n (tropm_mat_close n A) (n-1) i j
-           = tropm_walks_sum A (simple_walks n i j)"}
+           = tropm_walks_sum A (simple_walksm n i j)"}
 
-  Proof: identical structure to @{text floyd_warshall} with max replaced by min.
-  Uses @{text tropm_mat_pow_eq_sum_walks} (OFFICIAL SORRY 1) as its foundation.
-
-  Length estimate for the sorry fill-in:
-  \<^item> Define @{text no_neg_cycle} (dual of @{text no_pos_cycle}).  ~4 lines.
-  \<^item> Define @{text simple_walksm} (same as @{text simple_walks}, just typed).  ~4 lines.
-  \<^item> Lemma @{text cycle_shortcutting_min}: dual of @{text cycle_shortcutting}.  ~8 lines.
-  \<^item> Statement and proof of @{text bellman_ford}.  ~14 lines.
-  Total: ~30 lines, symmetric to the max-plus side.
+  Proof structure (symmetric to @{text floyd_warshall}):
+  \<^item> @{text tropm_mat_pow_close_eq_sum_walks_le}: closed power = sum over @{text walks_le}.
+  \<^item> @{text cycle_shortcutting_min}: every walk is dominated by a simple walk
+    (using the no-negative-cycle assumption to bound cycle weight from below).
+  \<^item> @{text bellman_ford}: @{text antisym} proof — @{text simple_walksm \<subseteq> walks_le}
+    for the @{text \<le>} direction; @{text cycle_shortcutting_min} for the @{text \<ge>} direction.
 \<close>
 
 definition no_neg_cycle :: "nat \<Rightarrow> tropm_mat \<Rightarrow> bool" where
@@ -983,12 +1520,541 @@ definition simple_walksm :: "nat \<Rightarrow> nat \<Rightarrow> nat \<Rightarro
   "simple_walksm n i j \<equiv>
      { w \<in> \<Union> k. walks n k i j . distinct w }"
 
+(* ------------------------------------------------------------------ *)
+subsection \<open>Bellman–Ford Infrastructure\<close>
+(* ------------------------------------------------------------------ *)
+
+(* In min-plus: a + b \<le> a  (since + = min, min(a,b) \<le> a) *)
+lemma tropm_add_le_left: "(a :: tropical_min) + b \<le> a"
+  by (simp add: tropm_add_le_iff add.assoc tropm_add_idem)
+
+(* Min-plus identity matrix: right-multiply by I leaves A unchanged. *)
+lemma tropm_mat_mul_id_right:
+  "i < n \<Longrightarrow> j < n \<Longrightarrow>
+   tropm_mat_mul n A (tropm_mat_id n) i j = A i j"
+proof -
+  assume hi: "i < n" and hj: "j < n"
+  have "tropm_mat_mul n A (tropm_mat_id n) i j
+        = (\<Sum> k \<in> {..<n}. A i k * tropm_mat_id n k j)"
+    by (simp add: tropm_mat_mul_def)
+  also have "\<dots> = (\<Sum> k \<in> {..<n}. if k = j then A i k * Fin' 0 else A i k * PosInf)"
+    by (rule sum.cong) (simp_all add: tropm_mat_id_def)
+  also have "\<dots> = A i j * Fin' 0"
+    by (simp add: sum.delta[OF finite_lessThan] hj zero_tropical_min_def
+                  times_tropical_min_def)
+  also have "\<dots> = A i j"
+    by (simp add: times_tropical_min_def one_tropical_min_def)
+  finally show ?thesis .
+qed
+
+(* Min-plus multiplication is monotone in the right argument. *)
+lemma tropm_mul_le_mul_right:
+  assumes "(a :: tropical_min) \<le> b"
+  shows "c * a \<le> c * b"
+proof -
+  have step: "c * a + c * b = c * b"
+  proof -
+    have "c * a + c * b = c * (a + b)"
+      by (simp add: distrib_left)
+    also have "\<dots> = c * b"
+      using assms by (simp add: tropm_add_le_iff)
+    finally show ?thesis .
+  qed
+  thus ?thesis by (simp add: tropm_add_le_iff)
+qed
+
+(* In min-plus: 1 \<le> a \<Longrightarrow> b \<le> b * a  (multiplying by \<ge>1 grows the value). *)
+lemma tropm_one_le_mul_of_ge_one:
+  assumes "(1 :: tropical_min) \<le> a"
+  shows "(b :: tropical_min) \<le> b * a"
+proof -
+  have "b * 1 \<le> b * a"
+    using tropm_mul_le_mul_right[OF assms] .
+  thus ?thesis by simp
+qed
+
+(* tropm_walks_sum_le_member: every member bounds the sum from above
+   (min over T \<le> any particular element). *)
+lemma tropm_walks_sum_le_member:
+  assumes "w' \<in> T" "finite T"
+  shows "tropm_walks_sum A T \<le> path_weightm A w'"
+proof -
+  have decomp: "tropm_walks_sum A T =
+        path_weightm A w' + tropm_walks_sum A (T - {w'})"
+    unfolding tropm_walks_sum_def
+    using assms by (subst sum.remove) auto
+  thus ?thesis using tropm_add_le_left by simp
+qed
+
+(* tropm_walks_sum_mono_subset: the min-plus walk-sum is anti-monotone in the
+   walk set (larger set = lower minimum). *)
+lemma tropm_walks_sum_mono_subset:
+  assumes "finite T" "S \<subseteq> T"
+  shows "tropm_walks_sum A T \<le> tropm_walks_sum A S"
+proof -
+  have fS: "finite S" using assms(1,2) by (rule finite_subset)
+  show ?thesis
+  proof (induction S rule: finite_induct[OF fS])
+    case empty
+    then show ?case by (simp add: tropm_walks_sum_def le_PosInf)
+  next
+    case (insert w S')
+    have hw_T: "w \<in> T" using insert.prems assms(2) by auto
+    have hS'_sub: "S' \<subseteq> T" using insert.prems assms(2) by auto
+    have expand_S: "tropm_walks_sum A (insert w S') =
+                    path_weightm A w + tropm_walks_sum A S'"
+      unfolding tropm_walks_sum_def
+      using insert.hyps(1,2) by (rule sum.insert)
+    have hw_ge: "tropm_walks_sum A T \<le> path_weightm A w"
+      using tropm_walks_sum_le_member[OF hw_T assms(1)] .
+    have hS'_ge: "tropm_walks_sum A T \<le> tropm_walks_sum A S'"
+      using insert.IH[OF hS'_sub] .
+    (* Need T \<le> min(path_weightm w, sum S') = path_weightm w + sum S' *)
+    have "tropm_walks_sum A T \<le> path_weightm A w + tropm_walks_sum A S'"
+    proof -
+      have key: "tropm_walks_sum A T +
+                 (path_weightm A w + tropm_walks_sum A S') =
+                 tropm_walks_sum A T"
+        by (metis hw_ge hS'_ge tropm_add_le_iff
+                  add.assoc add.commute tropm_add_idem)
+      thus ?thesis using tropm_add_le_iff by blast
+    qed
+    thus ?case using expand_S by simp
+  qed
+qed
+
+(* tropm_walks_sum_dominated: if every w \<in> S is dominated (some w' \<in> T has
+   smaller weight), then the min-plus sum over T is \<le> sum over S. *)
+lemma tropm_walks_sum_dominated:
+  assumes "finite S" "finite T"
+  assumes dominated: "\<forall> w \<in> S. \<exists> w' \<in> T. path_weightm A w' \<le> path_weightm A w"
+  shows "tropm_walks_sum A T \<le> tropm_walks_sum A S"
+proof (induction S rule: finite_induct[OF assms(1)])
+  case empty
+  then show ?case by (simp add: tropm_walks_sum_def le_PosInf)
+next
+  case (insert w S')
+  have expand_S: "tropm_walks_sum A (insert w S') =
+                  path_weightm A w + tropm_walks_sum A S'"
+    unfolding tropm_walks_sum_def
+    using insert.hyps(1,2) by (rule sum.insert)
+  obtain w' where hw': "w' \<in> T" "path_weightm A w' \<le> path_weightm A w"
+    using dominated insert.prems by auto
+  have hw_ge: "tropm_walks_sum A T \<le> path_weightm A w"
+    using tropm_walks_sum_le_member[OF hw'(1) assms(2)]
+          le_trans hw'(2) by blast
+  have hS'_ge: "tropm_walks_sum A T \<le> tropm_walks_sum A S'"
+    using insert.IH dominated insert.prems by auto
+  have "tropm_walks_sum A T \<le> path_weightm A w + tropm_walks_sum A S'"
+  proof -
+    have key: "tropm_walks_sum A T +
+               (path_weightm A w + tropm_walks_sum A S') =
+               tropm_walks_sum A T"
+      by (metis hw_ge hS'_ge tropm_add_le_iff
+                add.assoc add.commute tropm_add_idem)
+    thus ?thesis using tropm_add_le_iff by blast
+  qed
+  thus ?case using expand_S by simp
+qed
+
+(* Min-plus cycle excision: a walk with a repeated vertex can be shortened
+   and the shorter walk has \<le> weight (removing a \<ge>1 cycle). *)
+lemma path_weightm_cycle_excise:
+  assumes hv1: "v \<in> set (butlast w)"
+  assumes hv2: "v \<in> set (tl w)"
+  assumes hnnc: "no_neg_cycle n A"
+  assumes hw_in: "w \<in> walks n k i j"
+  shows "\<exists> w'. path_weightm A w' \<le> path_weightm A w \<and>
+               length w' < length w \<and>
+               w' \<noteq> [] \<and>
+               hd w' = hd w \<and> last w' = last w \<and>
+               set w' \<subseteq> {..<n}"
+proof -
+  (* Find indices p < q with w!p = w!q = v — identical to max-plus *)
+  have hne: "w \<noteq> []" using hv1 by auto
+  from hv1 obtain q where hq_bound: "q < length (butlast w)"
+                     and hq_val:   "(butlast w) ! q = v"
+    by (meson in_set_conv_nth)
+  from hv2 obtain p0 where hp0_bound: "p0 < length (tl w)"
+                      and hp0_val:   "(tl w) ! p0 = v"
+    by (meson in_set_conv_nth)
+  let ?p = "Suc p0"
+  let ?q = "q"
+  have hp_lt:   "?p < length w"  using hp0_bound by simp
+  have hp_val:  "w ! ?p = v"      by (simp add: hp0_val nth_tl)
+  have hq_lt:   "?q < length w - 1" using hq_bound by simp
+  have hq_val': "w ! ?q = v"      by (simp add: hq_val nth_butlast)
+  obtain p' q' where hp': "p' < length w" "w ! p' = v" "0 < p'"
+                and hq': "q' < length w - 1" "w ! q' = v"
+                and hpq: "p' < q'"
+  proof (cases "?p \<le> ?q")
+    case True
+    thus ?thesis
+      using hp_lt hp_val hq_lt hq_val'
+      by (intro that[of ?p ?q]) auto
+  next
+    case False
+    hence "?q < ?p" by simp
+    thus ?thesis
+      using hp_lt hp_val hq_lt hq_val'
+      by (intro that[of ?q ?p]) auto
+  qed
+  let ?w' = "take p' w @ drop q' w"
+  have hw'_hd:   "hd ?w' = hd w"
+    using hp'(3) by (simp add: hd_append take_eq_Nil)
+  have hw'_last: "last ?w' = last w"
+    using hq'(1) hw_in unfolding walks_def by (simp add: last_append)
+  have hw'_len:  "length ?w' < length w"
+  proof -
+    have "length ?w' = p' + (length w - q')"
+      using hp'(1) hq'(1) by simp
+    also have "\<dots> < length w"
+      using hpq hq'(1) hp'(1) by omega
+    finally show ?thesis .
+  qed
+  have hw'_weight: "path_weightm A ?w' \<le> path_weightm A w"
+  proof -
+    have take_drop_p: "w = take p' w @ drop p' w" by simp
+    have drop_p_ne:   "drop p' w \<noteq> []" using hp'(1) by simp
+    have take_p_ne:   "take p' w \<noteq> []" using hp'(3) by simp
+    have hd_drop_p:   "hd (drop p' w) = v"
+      using hp'(1,2) by (simp add: hd_drop_conv_nth)
+    have split_p: "path_weightm A w =
+        path_weightm A (take p' w @ [v]) * path_weightm A (drop p' w)"
+      using path_weightm_snoc[OF take_p_ne drop_p_ne]
+      by (simp add: hd_drop_p)
+    let ?C = "take (q'-p') (drop p' w) @ [v]"
+    have take_C_ne:     "take (q'-p') (drop p' w) \<noteq> []"
+      using hpq hp'(1) by simp
+    have drop_qp_drop_p: "drop (q'-p') (drop p' w) = drop q' w"
+      using hpq by (simp add: drop_drop)
+    have drop_q_ne:  "drop q' w \<noteq> []" using hq'(1) by simp
+    have hd_drop_q:  "hd (drop q' w) = v"
+      using hq'(1) hq'(2) by (metis hd_drop_conv_nth Suc_less_eq hq'(1))
+    have split_q: "path_weightm A (drop p' w) =
+        path_weightm A ?C * path_weightm A (drop q' w)"
+    proof -
+      have "path_weightm A (drop p' w) =
+            path_weightm A (take (q'-p') (drop p' w) @ drop q' w)"
+        by (simp add: drop_qp_drop_p[symmetric] append_take_drop_id)
+      also have "\<dots> = path_weightm A (take (q'-p') (drop p' w) @ [hd (drop q' w)]) *
+                       path_weightm A (drop q' w)"
+        using path_weightm_snoc[OF take_C_ne drop_q_ne] .
+      also have "\<dots> = path_weightm A ?C * path_weightm A (drop q' w)"
+        by (simp add: hd_drop_q)
+      finally show ?thesis .
+    qed
+    have v_lt_n: "v < n"
+    proof -
+      have "v = w ! p'" using hp'(2) by simp
+      have "set w \<subseteq> {..<n}" using walk_vertices_bounded[OF hw_in] .
+      thus ?thesis by (metis \<open>v = w ! p'\<close> in_set_conv_nth hp'(1)
+                             lessThan_iff subsetD)
+    qed
+    have C_in_walks: "?C \<in> walks n (q'-p') v v"
+    proof -
+      have hlen:  "length ?C = Suc (q'-p')" using hpq hp'(1) by simp
+      have hhd:   "hd ?C = v"
+        by (simp add: hd_append take_C_ne
+                      hd_drop_conv_nth[of p' w, folded hp'(2)] hp'(1))
+      have hlast: "last ?C = v" by simp
+      have hset:  "set ?C \<subseteq> {..<n}"
+      proof -
+        have "set (take (q'-p') (drop p' w)) \<subseteq> set w"
+          by (meson set_drop_subset set_take_subset subset_trans)
+        moreover have "set w \<subseteq> {..<n}"
+          using walk_vertices_bounded[OF hw_in] .
+        moreover have "{v} \<subseteq> {..<n}" using v_lt_n by simp
+        ultimately show ?thesis by auto
+      qed
+      show ?thesis unfolding walks_def
+        using hlen hhd hlast hset by simp
+    qed
+    (* By no_neg_cycle: 1 \<le> path_weightm A ?C *)
+    have cycle_ge: "(1 :: tropical_min) \<le> path_weightm A ?C"
+      using hnnc v_lt_n C_in_walks
+      unfolding no_neg_cycle_def by blast
+    (* path_weightm A (drop p' w) \<ge> path_weightm A (drop q' w) *)
+    have drop_p_ge: "path_weightm A (drop q' w) \<le> path_weightm A (drop p' w)"
+    proof -
+      have "path_weightm A (drop p' w) =
+            path_weightm A ?C * path_weightm A (drop q' w)"
+        using split_q .
+      also have "path_weightm A (drop q' w) \<le> \<dots>"
+        using tropm_one_le_mul_of_ge_one[OF cycle_ge]
+        by (simp add: mult.commute)
+      finally show ?thesis .
+    qed
+    (* Assemble: path_weightm A ?w' = (take) * (drop q') \<le> (take) * (drop p') = w *)
+    have main_ge: "path_weightm A ?w' \<le> path_weightm A w"
+    proof -
+      have "path_weightm A ?w' =
+            path_weightm A (take p' w @ [v]) * path_weightm A (drop q' w)"
+      proof -
+        have "path_weightm A ?w' =
+              path_weightm A (take p' w @ [hd (drop q' w)]) *
+              path_weightm A (drop q' w)"
+          using path_weightm_snoc[OF take_p_ne drop_q_ne] .
+        thus ?thesis by (simp add: hd_drop_q)
+      qed
+      also have "\<dots> \<le> path_weightm A (take p' w @ [v]) *
+                       path_weightm A (drop p' w)"
+        using tropm_mul_le_mul_right[OF drop_p_ge] .
+      also have "\<dots> = path_weightm A w"
+        using split_p by simp
+      finally show ?thesis .
+    qed
+    thus ?thesis .
+  qed
+  have hw'_ne:  "?w' \<noteq> []"
+    using hp'(3) by (simp add: hd_append take_eq_Nil)
+  have hw'_set: "set ?w' \<subseteq> {..<n}"
+  proof -
+    have "set ?w' \<subseteq> set w"
+      by (auto simp: set_append dest: in_set_takeD in_set_dropD)
+    thus ?thesis using walk_vertices_bounded[OF hw_in] by blast
+  qed
+  show "\<exists> w'. path_weightm A w' \<le> path_weightm A w \<and>
+               length w' < length w \<and>
+               w' \<noteq> [] \<and>
+               hd w' = hd w \<and> last w' = last w \<and>
+               set w' \<subseteq> {..<n}"
+    using hw'_weight hw'_len hw'_ne hw'_hd hw'_last hw'_set
+    by (intro exI[of _ ?w']) auto
+qed
+
+(* Min-plus cycle shortcutting: every walk is dominated by a simple walk. *)
+theorem cycle_shortcutting_min:
+  assumes hnnc: "no_neg_cycle n A"
+  assumes hw:   "w \<in> walks n k i j"
+  shows "\<exists> w' \<in> simple_walksm n i j. path_weightm A w' \<le> path_weightm A w"
+proof (induction "length w" arbitrary: k i j w rule: less_induct)
+  case (less w)
+  show ?case
+  proof (cases "distinct w")
+    case True
+    have "w \<in> simple_walksm n i j"
+      unfolding simple_walksm_def
+      using less(2) True by auto
+    thus ?thesis by (intro bexI[of _ w]) simp
+  next
+    case False
+    obtain xs v ys zs where hdecomp: "w = xs @ v # ys @ v # zs"
+      using not_distinct_decomp[OF False] by blast
+    have hv1: "v \<in> set (butlast w)"
+    proof -
+      have hpos: "length xs < length (butlast w)" by (simp add: hdecomp)
+      have "butlast w ! length xs = v"
+        by (simp add: hdecomp nth_butlast nth_append)
+      thus ?thesis by (metis hpos nth_mem)
+    qed
+    have hv2: "v \<in> set (tl w)"
+      using hdecomp by (cases xs) (auto simp: set_append)
+    obtain w'' where hle:   "path_weightm A w'' \<le> path_weightm A w"
+                and hlen:   "length w'' < length w"
+                and hne'':  "w'' \<noteq> []"
+                and hhd:    "hd w'' = hd w"
+                and hlast:  "last w'' = last w"
+                and hset:   "set w'' \<subseteq> {..<n}"
+      using path_weightm_cycle_excise[OF hv1 hv2 hnnc less(2)] by blast
+    have hw''_in: "w'' \<in> walks n (length w'' - 1) i j"
+      unfolding walks_def
+    proof (intro conjI)
+      show "length w'' = Suc (length w'' - 1)" using hne'' by (cases w'') simp_all
+      show "hd w'' = i"  using hhd walk_hd[OF less(2)] by simp
+      show "last w'' = j" using hlast walk_last[OF less(2)] by simp
+      show "set w'' \<subseteq> {..<n}" using hset .
+    qed
+    obtain w' where hw'_in: "w' \<in> simple_walksm n i j"
+               and hw'_le:  "path_weightm A w' \<le> path_weightm A w''"
+      using less(1)[OF hlen hw''_in] by blast
+    show ?thesis
+      by (rule bexI[OF _ hw'_in])
+         (rule le_trans[OF hw'_le hle])
+  qed
+qed
+
+(* simple_walksm n i j is finite — same argument as simple_walks. *)
+lemma simple_walksm_finite:
+  "finite (simple_walksm n i j)"
+proof -
+  have "simple_walksm n i j \<subseteq> {w . set w \<subseteq> {..<n} \<and> distinct w}"
+    unfolding simple_walksm_def walks_def by auto
+  moreover have "finite {w :: nat list . set w \<subseteq> {..<n} \<and> distinct w}"
+    by (rule finite_subset[OF _ finite_lists_length_le[OF finite_lessThan]])
+       (auto simp: length_remdups_leq)
+  ultimately show ?thesis by (rule finite_subset)
+qed
+
+(* ------------------------------------------------------------------ *)
+subsection \<open>Min-Plus Closed-Form Theorems\<close>
+(* ------------------------------------------------------------------ *)
+
+(* tropm_mat_pow_close_eq_sum_pow: min-plus dual of trop_mat_pow_close_eq_sum_pow.
+   (I \<oplus> A)^k i j = \<Sum>_{m \<le> k} A^m i j  in the min-plus semiring. *)
+theorem tropm_mat_pow_close_eq_sum_pow:
+  assumes hi: "i < n" and hj: "j < n"
+  shows "tropm_mat_pow n (tropm_mat_close n A) k i j =
+         (\<Sum> m \<in> {..k}. tropm_mat_pow n A m i j)"
+proof (induction k)
+  case 0
+  show ?case by (simp add: tropm_mat_close_def tropm_mat_id_def)
+next
+  case (Suc k)
+  have "(tropm_mat_pow n (tropm_mat_close n A) (Suc k)) i j
+        = (\<Sum> l \<in> {..<n}. tropm_mat_pow n (tropm_mat_close n A) k i l *
+                            tropm_mat_close n A l j)"
+    by (simp add: tropm_mat_mul_def)
+  also have "\<dots> = (\<Sum> l \<in> {..<n}. (\<Sum> m \<in> {..k}. tropm_mat_pow n A m i l) *
+                                     tropm_mat_close n A l j)"
+    by (rule sum.cong, simp, simp add: Suc.IH)
+  also have "\<dots> = (\<Sum> l \<in> {..<n}. (\<Sum> m \<in> {..k}. tropm_mat_pow n A m i l) * A l j) +
+                  (\<Sum> l \<in> {..<n}. (\<Sum> m \<in> {..k}. tropm_mat_pow n A m i l) *
+                                    tropm_mat_id n l j)"
+    by (simp add: tropm_mat_close_def distrib_left sum.distrib)
+  also have "(\<Sum> l \<in> {..<n}. (\<Sum> m \<in> {..k}. tropm_mat_pow n A m i l) * A l j)
+             = (\<Sum> m \<in> {..k}. tropm_mat_pow n A (Suc m) i j)"
+  proof -
+    have "(\<Sum> l \<in> {..<n}. (\<Sum> m \<in> {..k}. tropm_mat_pow n A m i l) * A l j)
+          = (\<Sum> m \<in> {..k}. \<Sum> l \<in> {..<n}. tropm_mat_pow n A m i l * A l j)"
+      by (simp only: sum_distrib_right sum.swap)
+    also have "\<dots> = (\<Sum> m \<in> {..k}. tropm_mat_pow n A (Suc m) i j)"
+      by (rule sum.cong, simp) (simp add: tropm_mat_mul_def)
+    finally show ?thesis .
+  qed
+  also have "(\<Sum> l \<in> {..<n}. (\<Sum> m \<in> {..k}. tropm_mat_pow n A m i l) *
+                               tropm_mat_id n l j)
+             = (\<Sum> m \<in> {..k}. tropm_mat_pow n A m i j)"
+  proof -
+    have "(\<Sum> l \<in> {..<n}. (\<Sum> m \<in> {..k}. tropm_mat_pow n A m i l) *
+                            tropm_mat_id n l j)
+          = (\<Sum> m \<in> {..k}. \<Sum> l \<in> {..<n}. tropm_mat_pow n A m i l * tropm_mat_id n l j)"
+      by (simp only: sum_distrib_right sum.swap)
+    also have "\<dots> = (\<Sum> m \<in> {..k}. tropm_mat_pow n A m i j)"
+      by (rule sum.cong, simp) (simp add: tropm_mat_mul_id_right hi hj)
+    finally show ?thesis .
+  qed
+  also have "(\<Sum> m \<in> {..k}. tropm_mat_pow n A (Suc m) i j) +
+             (\<Sum> m \<in> {..k}. tropm_mat_pow n A m i j)
+             = (\<Sum> m \<in> {..Suc k}. tropm_mat_pow n A m i j)"
+  proof -
+    let ?g = "\<lambda>m. tropm_mat_pow n A m i j"
+    have ri: "(\<Sum> m \<in> {..k}. ?g (Suc m)) = (\<Sum> m \<in> {1..Suc k}. ?g m)"
+      by (rule sum.reindex_cong[of Suc "{..k}" "{1..Suc k}" ?g])
+         (auto simp: image_iff)
+    have split_U: "(\<Sum> m \<in> {..Suc k}. ?g m) = ?g 0 + (\<Sum> m \<in> {1..Suc k}. ?g m)"
+      by (subst sum.atMost_Suc_eq_insert_0) simp_all
+    have split_T: "(\<Sum> m \<in> {..k}. ?g m) = ?g 0 + (\<Sum> m \<in> {1..k}. ?g m)"
+      by (subst sum.atMost_Suc_eq_insert_0[of k, simplified]) simp_all
+    have split_S: "(\<Sum> m \<in> {1..Suc k}. ?g m) = (\<Sum> m \<in> {1..k}. ?g m) + ?g (Suc k)"
+      by (simp add: sum.atLeastAtMost_Suc)
+    have idem: "(\<Sum> m \<in> {1..k}. ?g m) + (\<Sum> m \<in> {1..k}. ?g m) =
+                (\<Sum> m \<in> {1..k}. ?g m)"
+      by (subst sum_add_distrib[symmetric], simp add: tropm_add_idem)
+    have "(\<Sum> m \<in> {..k}. ?g (Suc m)) + (\<Sum> m \<in> {..k}. ?g m)
+          = (\<Sum> m \<in> {1..Suc k}. ?g m) + (\<Sum> m \<in> {..k}. ?g m)"
+      using ri by simp
+    also have "\<dots> = ((\<Sum> m \<in> {1..k}. ?g m) + ?g (Suc k)) +
+                    (?g 0 + (\<Sum> m \<in> {1..k}. ?g m))"
+      using split_S split_T by simp
+    also have "\<dots> = ?g 0 + (\<Sum> m \<in> {1..k}. ?g m) + ?g (Suc k)"
+      using idem by (simp add: add.assoc add.commute add.left_commute)
+    also have "\<dots> = (\<Sum> m \<in> {..k}. ?g m) + ?g (Suc k)"
+      using split_T by simp
+    also have "\<dots> = (\<Sum> m \<in> {..Suc k}. ?g m)"
+      by (simp add: sum.atMost_Suc)
+    finally show ?thesis .
+  qed
+  finally show ?case .
+qed
+
+(* tropm_mat_pow_close_eq_sum_walks_le: the closed min-plus matrix power
+   collects all walks of length \<le> k. *)
+theorem tropm_mat_pow_close_eq_sum_walks_le:
+  assumes "i < n" "j < n"
+  shows "tropm_mat_pow n (tropm_mat_close n A) k i j =
+         tropm_walks_sum A (walks_le n k i j)"
+proof -
+  have "tropm_mat_pow n (tropm_mat_close n A) k i j =
+        (\<Sum> m \<in> {..k}. tropm_mat_pow n A m i j)"
+    using assms by (rule tropm_mat_pow_close_eq_sum_pow)
+  also have "\<dots> = (\<Sum> m \<in> {..k}. tropm_walks_sum A (walks n m i j))"
+    by (rule sum.cong) (simp_all add: tropm_mat_pow_eq_sum_walks assms)
+  also have "\<dots> = tropm_walks_sum A (\<Union> m \<in> {..k}. walks n m i j)"
+    unfolding tropm_walks_sum_def
+    by (rule sum.UNION_disjoint[symmetric])
+       (auto simp: finite_walks walks_def)
+  also have "\<dots> = tropm_walks_sum A (walks_le n k i j)"
+    by (simp add: walks_le_def)
+  finally show ?thesis .
+qed
+
+(* ------------------------------------------------------------------ *)
+subsection \<open>25  Bellman–Ford Correctness\<close>
+(* ------------------------------------------------------------------ *)
+
 theorem bellman_ford:
   assumes "i < n" "j < n"
   assumes "no_neg_cycle n A"
   shows "tropm_mat_pow n (tropm_mat_close n A) (n-1) i j =
          tropm_walks_sum A (simple_walksm n i j)"
-  (* OFFICIAL SORRY *)
-  sorry
+proof (rule antisym)
+  (* (\<le>) direction: simple_walksm \<subseteq> walks_le, so min over more = smaller *)
+  show "tropm_mat_pow n (tropm_mat_close n A) (n-1) i j \<le>
+        tropm_walks_sum A (simple_walksm n i j)"
+  proof -
+    have lhs: "tropm_mat_pow n (tropm_mat_close n A) (n-1) i j =
+               tropm_walks_sum A (walks_le n (n-1) i j)"
+      using assms(1,2) by (rule tropm_mat_pow_close_eq_sum_walks_le)
+    have subset: "simple_walksm n i j \<subseteq> walks_le n (n-1) i j"
+    proof
+      fix w assume hw: "w \<in> simple_walksm n i j"
+      then have hdist: "distinct w"
+            and hwalk: "\<exists> m. w \<in> walks n m i j"
+        unfolding simple_walksm_def by auto
+      obtain m where hwm: "w \<in> walks n m i j" using hwalk by auto
+      have hset: "set w \<subseteq> {..<n}" using walk_vertices_bounded[OF hwm] .
+      have hlen_n: "length w \<le> n"
+      proof -
+        have "length w = card (set w)" using distinct_card[OF hdist] .
+        also have "card (set w) \<le> card {..<n}"
+          using card_mono[OF finite_lessThan hset] .
+        also have "card {..<n} = n" by simp
+        finally show ?thesis .
+      qed
+      have hm: "m \<le> n - 1"
+      proof -
+        have "Suc m = length w" using hwm unfolding walks_def by simp
+        thus ?thesis using hlen_n by omega
+      qed
+      show "w \<in> walks_le n (n-1) i j"
+        unfolding walks_le_def using hwm hm by auto
+    qed
+    show ?thesis
+      using lhs tropm_walks_sum_mono_subset[OF finite_walks_le subset] by simp
+  qed
+next
+  (* (\<ge>) direction: every walk in walks_le is dominated by a simple walk *)
+  show "tropm_walks_sum A (simple_walksm n i j) \<le>
+        tropm_mat_pow n (tropm_mat_close n A) (n-1) i j"
+  proof -
+    have lhs: "tropm_mat_pow n (tropm_mat_close n A) (n-1) i j =
+               tropm_walks_sum A (walks_le n (n-1) i j)"
+      using assms(1,2) by (rule tropm_mat_pow_close_eq_sum_walks_le)
+    have dominated: "\<forall> w \<in> walks_le n (n-1) i j.
+                     \<exists> w' \<in> simple_walksm n i j. path_weightm A w' \<le> path_weightm A w"
+    proof (intro ballI)
+      fix w assume hw: "w \<in> walks_le n (n-1) i j"
+      then obtain m where "m \<le> n - 1" "w \<in> walks n m i j"
+        unfolding walks_le_def by auto
+      thus "\<exists> w' \<in> simple_walksm n i j. path_weightm A w' \<le> path_weightm A w"
+        using cycle_shortcutting_min[OF assms(3)] by blast
+    qed
+    have "tropm_walks_sum A (simple_walksm n i j) \<le>
+          tropm_walks_sum A (walks_le n (n-1) i j)"
+      using tropm_walks_sum_dominated[OF simple_walksm_finite finite_walks_le dominated] .
+    thus ?thesis using lhs by simp
+  qed
+qed
 
 end
