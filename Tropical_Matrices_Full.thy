@@ -268,8 +268,17 @@ next
         = trop_mat_mul n (trop_mat_pow n A (p + q)) A i j"
     by simp
   also have "\<dots> = trop_mat_mul n (trop_mat_mul n (trop_mat_pow n A p) (trop_mat_pow n A q)) A i j"
-    (* proof sketch: apply IH pointwise and substitute *)
-    sorry
+  proof (unfold trop_mat_mul_def, rule sum.cong, simp)
+    fix k assume "k \<in> {..<n}"
+    hence hk: "k < n" by simp
+    with Suc.prems(1)
+    have "trop_mat_pow n A (p + q) i k =
+          trop_mat_mul n (trop_mat_pow n A p) (trop_mat_pow n A q) i k"
+      using Suc.IH by blast
+    thus "trop_mat_pow n A (p + q) i k * A k j =
+          trop_mat_mul n (trop_mat_pow n A p) (trop_mat_pow n A q) i k * A k j"
+      by simp
+  qed
   also have "\<dots> = trop_mat_mul n (trop_mat_pow n A p) (trop_mat_mul n (trop_mat_pow n A q) A) i j"
     using Suc.prems by (simp add: trop_mat_mul_assoc)
   also have "\<dots> = trop_mat_mul n (trop_mat_pow n A p) (trop_mat_pow n A (Suc q)) i j"
@@ -393,13 +402,56 @@ lemma walks_Suc:
    (\<Union> m \<in> {..<n}. (\<lambda>w. w @ [j]) ` walks n k i m \<inter>
                    {w . last (butlast w) = m \<and> j < n})"
   unfolding walks_def
-  (* proof sketch: show that any walk of length Suc(Suc k) factors into
-     a walk of length Suc k followed by one step.  The key steps are:
-     (1) splitting the last element off using @{text "butlast @ [last]"},
-     (2) showing that @{text "butlast w \<in> walks n k i m"} where @{text "m = last (butlast w)"},
-     (3) the converse direction by list append.
-     Omitting the details as the combinatorics is routine. *)
-  sorry
+proof (rule set_eqI)
+  fix w :: "nat list"
+  show "w \<in> {w. length w = Suc (Suc k) \<and> hd w = i \<and> last w = j \<and> set w \<subseteq> {..<n}} \<longleftrightarrow>
+        w \<in> (\<Union> m \<in> {..<n}. (\<lambda>w. w @ [j]) ` {w. length w = Suc k \<and> hd w = i \<and> last w = m \<and> set w \<subseteq> {..<n}}
+             \<inter> {w. last (butlast w) = m \<and> j < n})"
+  proof
+    assume hw: "w \<in> {w. length w = Suc (Suc k) \<and> hd w = i \<and> last w = j \<and> set w \<subseteq> {..<n}}"
+    then have hlen: "length w = Suc (Suc k)" and hhd: "hd w = i"
+              and hlast: "last w = j" and hset: "set w \<subseteq> {..<n}" by simp_all
+    have hne: "w \<noteq> []" using hlen by auto
+    have hbne: "butlast w \<noteq> []" using hlen by (simp add: butlast_eq_Nil_conv)
+    let ?m = "last (butlast w)"
+    have hw_eq: "w = butlast w @ [j]"
+      by (metis append_butlast_last_id hlast hne)
+    have hbl_len: "length (butlast w) = Suc k"
+      using hlen by simp
+    have hbl_hd: "hd (butlast w) = i"
+      by (metis hd_butlast hlen hhd nat.simps(3))
+    have hbl_set: "set (butlast w) \<subseteq> {..<n}"
+      using hset by (rule subset_trans[OF set_butlast])
+    have hm_lt: "?m < n"
+      by (metis last_in_set hbne hbl_set lessThan_iff subsetD)
+    have hj_lt: "j < n"
+      by (metis last_in_set hne hset lessThan_iff hlast subsetD)
+    have hbl_last: "last (butlast w) = ?m" by simp
+    have hbl_mem: "butlast w \<in> {w. length w = Suc k \<and> hd w = i \<and> last w = ?m \<and> set w \<subseteq> {..<n}}"
+      by (simp add: hbl_len hbl_hd hbl_set)
+    show "w \<in> (\<Union> m \<in> {..<n}. (\<lambda>w. w @ [j]) ` {w. length w = Suc k \<and> hd w = i \<and> last w = m \<and> set w \<subseteq> {..<n}}
+               \<inter> {w. last (butlast w) = m \<and> j < n})"
+      apply (rule UN_I[of _ ?m])
+        apply (simp add: hm_lt)
+       apply (rule IntI)
+        apply (rule imageI[OF hbl_mem])
+       apply (simp add: hw_eq hj_lt)
+      done
+  next
+    assume hw: "w \<in> (\<Union> m \<in> {..<n}. (\<lambda>w. w @ [j]) ` {w. length w = Suc k \<and> hd w = i \<and> last w = m \<and> set w \<subseteq> {..<n}}
+                    \<inter> {w. last (butlast w) = m \<and> j < n})"
+    then obtain m v where hm: "m \<in> {..<n}"
+                           and hv: "v \<in> {w. length w = Suc k \<and> hd w = i \<and> last w = m \<and> set w \<subseteq> {..<n}}"
+                           and hw_eq: "w = v @ [j]"
+                           and hj: "j < n"
+      by (auto simp: image_def)
+    from hv have hv_len: "length v = Suc k" and hv_hd: "hd v = i"
+                and hv_set: "set v \<subseteq> {..<n}" by simp_all
+    show "w \<in> {w. length w = Suc (Suc k) \<and> hd w = i \<and> last w = j \<and> set w \<subseteq> {..<n}}"
+      using hv_len hv_hd hv_set hj hw_eq
+      by (simp add: hd_append)
+  qed
+qed
 
 text \<open>
   A cleaner statement: walks of length @{text "Suc k"} biject with pairs
@@ -410,8 +462,43 @@ lemma walks_Suc_factored:
   "walks n (Suc k) i j =
    { w @ [j] | w m . m < n \<and> w \<in> walks n k i m \<and> j < n }"
   unfolding walks_def
-  (* proof sketch: immediate from list structure and the definition of walks *)
-  sorry
+proof (rule set_eqI)
+  fix w :: "nat list"
+  show "w \<in> {w. length w = Suc (Suc k) \<and> hd w = i \<and> last w = j \<and> set w \<subseteq> {..<n}} \<longleftrightarrow>
+        w \<in> {w @ [j] | w m. m < n \<and> w \<in> {w. length w = Suc k \<and> hd w = i \<and> last w = m \<and> set w \<subseteq> {..<n}} \<and> j < n}"
+  proof
+    assume hw: "w \<in> {w. length w = Suc (Suc k) \<and> hd w = i \<and> last w = j \<and> set w \<subseteq> {..<n}}"
+    then have hlen: "length w = Suc (Suc k)" and hhd: "hd w = i"
+              and hlast: "last w = j" and hset: "set w \<subseteq> {..<n}" by simp_all
+    have hne: "w \<noteq> []" using hlen by auto
+    have hbne: "butlast w \<noteq> []" using hlen by (simp add: butlast_eq_Nil_conv)
+    let ?m = "last (butlast w)"
+    have hw_eq: "w = butlast w @ [j]"
+      by (metis append_butlast_last_id hlast hne)
+    have hbl_len: "length (butlast w) = Suc k" using hlen by simp
+    have hbl_hd: "hd (butlast w) = i"
+      by (metis hd_butlast hlen hhd nat.simps(3))
+    have hbl_set: "set (butlast w) \<subseteq> {..<n}"
+      using hset by (rule subset_trans[OF set_butlast])
+    have hm_lt: "?m < n"
+      by (metis last_in_set hbne hbl_set lessThan_iff subsetD)
+    have hj_lt: "j < n"
+      by (metis last_in_set hne hset lessThan_iff hlast subsetD)
+    show "w \<in> {w @ [j] | w m. m < n \<and> w \<in> {w. length w = Suc k \<and> hd w = i \<and> last w = m \<and> set w \<subseteq> {..<n}} \<and> j < n}"
+      using hm_lt hj_lt hw_eq hbl_len hbl_hd hbl_set
+      by auto
+  next
+    assume hw: "w \<in> {w @ [j] | w m. m < n \<and> w \<in> {w. length w = Suc k \<and> hd w = i \<and> last w = m \<and> set w \<subseteq> {..<n}} \<and> j < n}"
+    then obtain v m where hm: "m < n"
+                           and hv: "v \<in> {w. length w = Suc k \<and> hd w = i \<and> last w = m \<and> set w \<subseteq> {..<n}}"
+                           and hw_eq: "w = v @ [j]" and hj: "j < n"
+      by auto
+    from hv have hv_len: "length v = Suc k" and hv_hd: "hd v = i"
+                and hv_set: "set v \<subseteq> {..<n}" by simp_all
+    show "w \<in> {w. length w = Suc (Suc k) \<and> hd w = i \<and> last w = j \<and> set w \<subseteq> {..<n}}"
+      using hv_len hv_hd hv_set hj hw_eq by (simp add: hd_append)
+  qed
+qed
 
 (* ================================================================== *)
 section \<open>Part IV  Path Weight\<close>
@@ -497,15 +584,76 @@ text \<open>
 \<close>
 
 lemma path_weight_cycle_excise:
-  assumes "v \<in> set (butlast w)" "v \<in> set (tl w)"
+  assumes hv1: "v \<in> set (butlast w)"
+  assumes hv2: "v \<in> set (tl w)"
+  assumes hnpc: "no_pos_cycle n A"
+  assumes hw_in: "w \<in> walks n k i j"
   shows "\<exists> w'. path_weight A w' \<ge> path_weight A w \<and>
                length w' < length w \<and>
                hd w' = hd w \<and> last w' = last w"
-  (* proof sketch: split w at the two occurrences of v to obtain w = w1 @ [v] @ cycle @ w2.
-     The excised walk is w1 @ [v] @ w2.  Under no_pos_cycle, cycle weight \<le> 1,
-     so path_weight_append gives the inequality.  Length strictly decreases because
-     the cycle is non-empty. *)
-  sorry
+proof -
+  (* Find indices p < q with w!p = w!q = v, p > 0 (from tl), q < length w - 1 (from butlast) *)
+  have hne: "w \<noteq> []" using hv1 by auto
+  from hv1 obtain q where hq_bound: "q < length (butlast w)" and hq_val: "(butlast w) ! q = v"
+    by (meson in_set_conv_nth)
+  from hv2 obtain p0 where hp0_bound: "p0 < length (tl w)" and hp0_val: "(tl w) ! p0 = v"
+    by (meson in_set_conv_nth)
+  (* Convert to w-indices *)
+  let ?p = "Suc p0"
+  let ?q = "q"
+  have hp_lt: "?p < length w" using hp0_bound by simp
+  have hp_val: "w ! ?p = v" by (simp add: hp0_val nth_tl)
+  have hq_lt: "?q < length w - 1" using hq_bound by simp
+  have hq_val': "w ! ?q = v" by (simp add: hq_val nth_butlast)
+  (* Build two cases: either p < q (good) or q ≤ p; in either case get p' < q' *)
+  obtain p' q' where hp': "p' < length w" "w ! p' = v" "0 < p'"
+                 and hq': "q' < length w - 1" "w ! q' = v"
+                 and hpq: "p' < q'"
+  proof (cases "?p \<le> ?q")
+    case True
+    thus ?thesis
+      using hp_lt hp_val hq_lt hq_val'
+      by (intro that[of ?p ?q]) auto
+  next
+    case False
+    hence "?q < ?p" by simp
+    thus ?thesis
+      using hp_lt hp_val hq_lt hq_val'
+      by (intro that[of ?q ?p]) auto
+  qed
+  (* Witness: excise the cycle between positions p' and q' *)
+  let ?w' = "take p' w @ drop q' w"
+  have hw'_hd: "hd ?w' = hd w"
+    using hp'(3) by (simp add: hd_append take_eq_Nil)
+  have hw'_last: "last ?w' = last w"
+    using hq'(1) hw_in unfolding walks_def by (simp add: last_append)
+  have hw'_len: "length ?w' < length w"
+  proof -
+    have "length ?w' = p' + (length w - q')"
+      using hp'(1) hq'(1) by simp
+    also have "\<dots> < length w"
+      using hpq hq'(1) hp'(1) by omega
+    finally show ?thesis .
+  qed
+  (* Weight bound: the cycle segment has weight ≤ 1 under no_pos_cycle.
+     The cycle is w[p'..q'] (from v back to v), giving a closed walk.
+     Since w ∈ walks n k i j, all vertices in w (and hence in the cycle) are in {..<n}.
+     path_weight A w = path_weight A (take (p'+1) w) * path_weight A (drop p' w)
+                     = path_weight A (take (p'+1) w) * path_weight A ([v] @ cycle-part @ drop q' w)
+     where cycle-part is from q'+1 onwards.
+     The cycle weight (path_weight A (take q'-p'+1 (drop p' w))) ≤ 1 by no_pos_cycle.
+     Thus path_weight A w ≤ path_weight A ?w'.
+
+     This is a non-trivial algebraic argument. We provide it as sorry here because
+     it requires careful path_weight_append arithmetic. The no_pos_cycle assumption
+     is passed through to guarantee this. *)
+  have hw'_weight: "path_weight A w \<le> path_weight A ?w'"
+    sorry
+  show "\<exists> w'. path_weight A w' \<ge> path_weight A w \<and>
+              length w' < length w \<and>
+              hd w' = hd w \<and> last w' = last w"
+    using hw'_weight hw'_len hw'_hd hw'_last
+    by (intro exI[of _ ?w']) auto
 
 (* ================================================================== *)
 section \<open>Part V  Matrix Power = Tropical Sum over Walks\<close>
