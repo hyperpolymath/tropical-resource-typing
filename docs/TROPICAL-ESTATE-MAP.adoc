@@ -1,0 +1,332 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
+= Tropical Algebra in the Hyperpolymath Estate: A Unified Map
+Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+2026-04-11
+:toc:
+:toc-placement: preamble
+:sectnums:
+:icons: font
+
+[.lead]
+Three distinct estate systems — 007 agent reasoning, tropical session types,
+and Protocol Squisher — each rest on tropical algebra, but on *different variants*
+of it.  This document maps each application to its variant, identifies the shared
+structural backbone (the dioid), and states the connections that are still waiting
+to be formalised.
+
+'''
+
+== The Two Variants
+
+Tropical algebra begins with a choice: which binary operation is the semiring
+addition (the ``max-out'' operation that measures bottlenecks or bests)?
+
+[cols="1,2,2,1,1"]
+|===
+|Variant |Carrier |Addition (⊕) |Multiplication (⊗) |Identity of ⊕
+
+|**Max-plus**
+|ℕ ∪ {−∞}
+|max
+|+
+|−∞
+
+|**Min-plus**
+|ℕ ∪ {+∞}
+|min
+|+
+|+∞
+|===
+
+Both are **dioids** — idempotent semirings satisfying `a ⊕ a = a`.  Idempotency
+is the structural fact that places them outside the ring hierarchy and makes
+them the right tool for optimisation: when you add the same option twice, you
+do not double-count it.  The dioid property is proved in both directions in
+`Tropical_v2.thy`:
+
+[source,isabelle]
+----
+theorem tropical_add_idem : "(a :: tropical) + a = a"
+theorem tropm_add_idem_thm : "(a :: tropical_min) + a = a"
+----
+
+The two variants are **dual**: negate all values, flip min↔max, and you move from
+one to the other.  This is why every max-plus theorem in
+`Tropical_Matrices_Full.thy` has a min-plus counterpart —
+`tropm_mat_pow_eq_sum_walks` is the dual of `trop_mat_pow_eq_sum_walks`,
+and `bellman_ford` is the dual of `floyd_warshall`.
+
+== The Three Estate Applications
+
+[cols="1,1,2,2"]
+|===
+|Application |Variant |What ⊗ measures |What ⊕ computes
+
+|**007 token costs**
+|Min-plus (ℝ≥0 ∪ {+∞})
+|Cost of one reasoning step
+|Minimum-cost branch in an agent tree
+
+|**Session types (Span)**
+|Max-plus (ℕ ∪ {−∞})
+|Latency of one communication
+|Parallel wall-clock bottleneck
+
+|**Protocol Squisher**
+|Max semilattice (4-class)
+|Transport fidelity loss per hop
+|Worst fidelity along an adapter chain
+|===
+
+=== 007 Token Costs (min-plus)
+
+007 uses min-plus to model the *worst-case cost of agent reasoning branches*.
+A branch of the agent tree has a token cost (the number of tokens consumed
+by one inference step); the total cost of a path through the tree is the
+sum (⊗ = +) of branch costs; the optimal policy chooses the path of minimum
+total cost (⊕ = min).
+
+The mathematical structure is min-plus matrix power: if `A(i,j)` is the
+token cost of transition from reasoning state `i` to state `j`, then
+`A^k(i,j)` is the minimum-cost k-step path from i to j.  Bellman-Ford
+over this matrix gives the globally optimal policy.
+
+*Variant:* min-plus, because we **minimise** cost.
+*Isabelle counterpart:* `tropm_mat_pow_eq_sum_walks` (sorry — to be filled)
+and `bellman_ford` (sorry — to be filled) in `Tropical_Matrices_Full.thy`.
+
+=== Session Types / Span (max-plus)
+
+The `TropicalSessionTypes.lean` formalisation grades session types by a
+max-plus tropical budget.  Parallel branches (`spec_par`) use `tAdd`
+(max) because the wall-clock cost of parallel execution is the
+*bottleneck* — you wait for the slowest branch.  Sequential steps use
+`tMul` (+) because costs accumulate.
+
+The soundness theorem says:
+
+[source,lean4]
+----
+theorem soundness (s : Session) : grade s = .val (Span s)
+----
+
+The Lean `grade` function is the static max-plus matrix entry; `Span` is
+the dynamic execution cost.  The Lean theorem is the instance-level
+statement of the Isabelle theorem `trop_mat_pow_eq_sum_walks`:
+both say ``recursive static definition = inductive operational semantics''.
+
+*Variant:* max-plus, because we track the **bottleneck** (maximum).
+*Isabelle counterpart:* `trop_mat_pow_eq_sum_walks` /
+`max_khop_eq_sum_walks` in `Tropical_Matrices_Full.thy`.
+
+The QTT refinement theorem
+
+[source,lean4]
+----
+theorem tropical_grade_le_sequentialTotal (s : Session) :
+    Span s ≤ sequentialTotal s
+----
+
+says `max(a, b) ≤ a + b` — the tropical bound is tighter than the linear
+billing.  This is exactly `tropical_add_idem` in Isabelle: idempotency
+of `⊕` implies `a ⊕ b ≤ a + b` (as naturals).
+
+=== Protocol Squisher (max semilattice)
+
+Protocol Squisher classifies every type conversion into one of four
+**transport classes**: Concorde, Business, Economy, Wheelbarrow,
+ordered by fidelity (Concorde > Business > Economy > Wheelbarrow).
+
+The composition rule is: the class of a chain of adapters is the
+**worst** class along the chain.  In algebraic terms:
+
+[cols="1,1,1"]
+|===
+|Operation |Symbol |Meaning
+
+|Composition
+|⊗
+|Chain two adapters; result class = max degradation = min fidelity
+
+|Join (alternative paths)
+|⊕
+|Choose best of two alternative paths; result = max fidelity class
+
+|Identity
+|Concorde
+|Zero-loss adapter; neutral element for composition
+|===
+
+The four classes are totally ordered (Concorde ≺ Business ≺ Economy ≺
+Wheelbarrow under the fidelity-loss ordering), making this a
+**bounded join-semilattice** — equivalently, a max-plus tropical semiring
+over the four-element chain `{0, 1, 2, 3}` with addition = max and
+multiplication = max (not +).
+
+NOTE: This is a **degenerate max-plus** semiring where ⊗ = ⊕ = max
+(both operations are the same lattice join).  It is not the general max-plus
+semiring used for session types, but it shares the dioid property and the
+``no double-counting'' semantics.
+
+*Minimax adapter search:* finding the optimal adapter chain from type A to
+type B through intermediate types is a **tropical minimax optimisation**:
+minimise (over all paths) the maximum class degradation along the path.
+This is exactly Dijkstra-minimax over a semilattice, which is solved by
+`floyd_warshall` (the min-plus / semilattice dual).
+
+*Formal proof obligation* (not yet in repo): prove that the 4-class
+lattice is a bounded join-semilattice, then appeal to
+`bellman_ford`/`floyd_warshall` for correctness of the adapter search.
+The proof target is `protocol-squisher/proofs/tropical/`.
+
+== The Dioid as Unifying Backbone
+
+All three applications share the same structural skeleton:
+
+[source]
+----
+Carrier   :  totally ordered set with a bottom element (−∞ or +∞ or Wheelbarrow)
+⊕         :  join (max or min) — idempotent, commutative, associative
+⊗         :  combination (+ or max) — associative, distributes over ⊕
+a ⊕ a = a :  idempotency — NO double-counting
+----
+
+The dioid structure is the source of all three applications' key properties:
+
+[cols="1,3"]
+|===
+|Dioid property |Consequence in each application
+
+|`a ⊕ a = a`
+|007: visiting the same state twice on the optimal path costs the same.
+Session types: repeating the same parallel branch doesn't increase the wall-clock span.
+Squisher: routing through the same node twice doesn't degrade fidelity further.
+
+|`a ⊗ 0 = 0` (0 = additive identity = −∞ or +∞)
+|Absent edges (missing adapters, impossible state transitions) propagate correctly: one absent link makes the whole path absent.
+
+|Associativity of ⊗
+|Paths can be split at any intermediate point and composed; matrix power is well-defined.
+
+|Distributivity of ⊗ over ⊕
+|The key to `trop_mat_pow_eq_sum_walks`: matrix multiplication distributes over the sum-over-walks, allowing the inductive step.
+|===
+
+== Cross-System Connections (not yet formalised)
+
+Three connections exist mathematically but have not been stated as theorems.
+Each is a paper section.
+
+=== Connection 1: `soundness` ↔ `trop_mat_pow_eq_sum_walks`
+
+*Lean 4 `soundness`:* `grade s = .val (Span s)` —
+static grade = dynamic execution span.
+
+*Isabelle `trop_mat_pow_eq_sum_walks`:* `A^k(i,j) = ∑_{w ∈ walks n k i j} path_weight A w` —
+matrix power = tropical sum over walks.
+
+Both say: **recursive static definition = inductive operational semantics**.
+If `Session` is mapped to a `trop_mat` (session type graph = adjacency matrix,
+start node `i`, exit node `j`), Lean `soundness` is a corollary of the
+Isabelle theorem.  The bridge is the `CommSemiring Tropical` instance
+in `TropicalSessionTypes.lean`.
+
+*Target:* state as an Isabelle lemma; proof is ~10 lines once the
+session→matrix embedding is defined.
+
+=== Connection 2: `tropical_grade_le_sequentialTotal` ↔ `tropical_add_idem`
+
+*Lean:* `Span s ≤ sequentialTotal s` — max(a,b) ≤ a+b for all sessions.
+
+*Isabelle:* `tropical_add_idem` — `a ⊕ a = a` in the dioid.
+
+The refinement `max(n1, n2) ≤ n1 + n2` follows from idempotency: in the
+dioid, `a ⊕ b ≤ a + b` (as naturals) because `max a b ≤ a + b`.
+
+*Target:* `trop_add_le_sum: ∀ (a b : tropical). trop_add a b ≤ a + b`
+(~2 lines in Isabelle).
+
+=== Connection 3: `spec_par` ↔ `trop_mat_add`
+
+`spec_par s1 s2` with `grade = tAdd (grade s1) (grade s2)` is exactly
+`trop_mat_add` on single-entry session matrices.  Making this explicit gives
+a machine-checked session type checker backed by `floyd_warshall`.
+
+*Target:* define `session_matrix : Session → nat → trop_mat` and prove
+`grade s = trop_mat_star 2 (session_matrix s) 0 1`.
+
+== Relationship to Other Estate Work
+
+[cols="1,2,1"]
+|===
+|System |Connection |Status
+
+|`007-lang`
+|Min-plus token cost model; `bellman_ford` gives optimal policy
+|Separate session (007 is private)
+
+|`protocol-squisher`
+|Semilattice minimax = tropical adapter search; proof target in `proofs/tropical/`
+|Pending (P4 in TROPICAL-NEXT.adoc)
+
+|`maa-framework`
+|`trop_mat_pow n A k i j = 0` (NegInf = unreachable) → RMO obliteration;
+`> 0` (Fin k) → RMR reversibility witness
+|Pending (`Tropical_MAA.thy`)
+
+|`betlang`
+|`Tropical_WCET.thy` connecting `trop_mat_star` to CFG WCET bounds;
+formal DO-178C argument
+|Pending
+
+|`absolute-zero`
+|`Tropical_CNO.thy` proves A** = A* (CNO normal form);
+`tropical_cno_bridge.v` to be added
+|Bridge file pending (P6)
+|===
+
+== Gemini Synthesis Note
+
+A related document, `tropical-unification-2026-04-04.md`, exists in
+`nextgen-languages/affinescript/docs/academic/tropical-session-types/`.
+That document was *AI-authored* (Gemini, 2026-04-04): the mathematics
+is correct and the connections identified are genuine, but the narrative
+framing is inflated.  This document supersedes it as the canonical
+estate map and is written to reflect only what is formally proved or
+directly provable.
+
+== Files
+
+[cols="2,3"]
+|===
+|File |Contents
+
+|`Tropical_v2.thy`
+|Both semiring variants, linorder, trop_sum_eq_Max, proof methods
+
+|`Tropical_Matrices_Full.thy`
+|Matrix algebra, walk sets, path_weight, trop_mat_pow_eq_sum_walks,
+floyd_warshall; min-plus duals with 2 sorries
+
+|`Tropical_Kleene.thy`
+|trop_mat_star, star equation, least prefixpoint; 2 sorries
+
+|`Tropical_CNO.thy`
+|CNO predicate, A** = A*, trop_cno_* instances; 2 sorries
+
+|`Tropical_Matrices_Clean.thy`
+|Reference version using trop_sum_eq_Max; 2 sorries
+
+|`TropicalSessionTypes.lean`
+|Lean 4: CommSemiring Tropical, session types, soundness, QTT refinement
+
+|`Tropical Resource Typing For Protocols.pdf`
+|Original informal theory document
+
+|`docs/HANDOVER_v2.adoc`
+|Master handover: file inventory, sorry fix descriptions, open items
+|===
+
+The 10 remaining sorries and their close order are documented in
+`docs/HANDOVER_v2.adoc` §2.
