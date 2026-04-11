@@ -1,0 +1,48 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage{isabelle,isabellesym}
+\usepackage{amsmath,amssymb}
+\usepackage{pdfsetup}
+
+\urlstyle{rm}
+\isabellestyle{it}
+
+\begin{document}
+
+\title{Tropical Algebra: Max-Plus and Min-Plus Semirings}
+\author{Jonathan D.A.\ Jewell}
+\maketitle
+
+\begin{abstract}
+We formalise the tropical semiring in two flavours: the max-plus semiring
+$(\mathbb{N} \cup \{-\infty\},\, \max,\, +)$ and the min-plus semiring
+$(\mathbb{N} \cup \{+\infty\},\, \min,\, +)$, both instantiated in
+Isabelle's \texttt{comm\_semiring\_1} hierarchy as dioids.
+
+Building on this foundation we develop matrix algebra over both semirings,
+characterise matrix powers as tropical sums over walk sets, and prove
+a Floyd-Warshall theorem: under the absence of positive-weight cycles the
+Kleene star of a matrix equals the maximum-weight simple-path matrix.
+
+The Kleene star is defined finitely as $(I \oplus A)^{n-1}$ (no infinitary
+construction required) and shown to satisfy the standard star equation
+$A^* = I \oplus A \cdot A^*$ and to be the least prefixpoint of
+$X \mapsto I \oplus A \cdot X$.
+
+Finally, we instantiate the \emph{Certified Null Operation} (CNO)
+predicate from the absolute-zero resource model: we exhibit six CNO
+instances for tropical matrices (\texttt{id}, $I \oplus {-}$,
+$A \oplus A$, $A^*$, and their compositions), prove that CNOs satisfy
+$\Delta S = 0$, and derive that the second application of $A^*$ costs
+$O(0)$ computation.
+\end{abstract}
+
+\tableofcontents
+
+\parindent 0pt\parskip 0.5ex
+
+\input{session}
+
+\bibliographystyle{abbrv}
+\bibliography{root}
+
+\end{document}

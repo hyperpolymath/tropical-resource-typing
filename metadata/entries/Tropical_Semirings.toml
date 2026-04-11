@@ -1,0 +1,49 @@
+title = "Tropical Algebra: Max-Plus and Min-Plus Semirings"
+
+date = 2026-04-11
+
+topics = [
+  "Mathematics/Algebra",
+  "Computer science/Algorithms/Mathematical",
+  "Computer science/Automata and formal languages"
+]
+
+abstract = """
+<p>We formalise the tropical semiring in two flavours: the max-plus semiring
+(ℕ ∪ {−∞}, max, +) and the min-plus semiring (ℕ ∪ {+∞}, min, +),
+both instantiated in Isabelle's <em>comm_semiring_1</em> hierarchy as dioids.
+</p>
+<p>Building on this foundation we develop matrix algebra over both semirings,
+characterise matrix powers as tropical sums over walk sets, and prove a
+Floyd–Warshall theorem: under the absence of positive-weight cycles the Kleene
+star of a matrix equals the maximum-weight simple-path matrix.
+</p>
+<p>The Kleene star is defined finitely as (I ⊕ A)<sup>n−1</sup> (no infinitary
+construction required) and shown to satisfy the standard star equation
+A* = I ⊕ A·A* and to be the least prefixpoint of X ↦ I ⊕ A·X.
+</p>
+<p>Finally, we instantiate the <em>Certified Null Operation</em> (CNO) predicate
+from the absolute-zero resource model, exhibiting six CNO instances for tropical
+matrices and proving that CNOs satisfy ΔS = 0 and that the second application
+of A* costs O(0) computation.
+</p>"""
+
+license = "bsd"
+
+note = ""
+
+[authors]
+[authors.jewell]
+name = "Jonathan D.A. Jewell"
+email = "jewell_email"
+
+[notify]
+jewell = "jewell_email"
+
+[history]
+
+[extra]
+
+[related]
+dois = []
+pubs = []

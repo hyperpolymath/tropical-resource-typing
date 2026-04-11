@@ -437,7 +437,7 @@ novel AFP entry
 * [x] `document/root.bib` written
 * [x] `README` with submission checklist written
 * [ ] All sorries closed (10 remaining)
-* [ ] AFP `metadata.yaml` (not yet created)
+* [x] `metadata/entries/Tropical_Semirings.toml` written (TOML format, not YAML)
 * [ ] Final build verification on clean Isabelle install
 
 
