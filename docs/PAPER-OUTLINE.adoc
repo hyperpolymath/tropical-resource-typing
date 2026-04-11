@@ -1,0 +1,477 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell
+= Paper Outline: Rigorous Tropical Session Types
+Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+2026-04-11
+:toc:
+:toc-placement: preamble
+:sectnums:
+:icons: font
+
+[.lead]
+Working outline for the arXiv submission.
+Target venue: arXiv cs.PL / cs.LO.
+Draft target: after the 10 Isabelle sorries are closed (AFP submission ready).
+
+'''
+
+== Title
+
+**Rigorous Tropical Session Types: An Algebraic Approach to Speculative Concurrency**
+
+*Running title (short):* Tropical Session Types
+
+*Keywords:* tropical semiring, session types, quantitative type theory,
+speculative execution, Lean 4, Isabelle/HOL, formal verification
+
+== Abstract (draft)
+
+Session types statically guarantee deadlock-freedom but ignore resource cost.
+Quantitative Type Theory (QTT) tracks resources via a semiring grade, but
+uses ordinary addition for parallel branches — overestimating the wall-clock
+cost of speculative execution by summing both branch costs instead of taking
+the bottleneck.
+
+We propose grading session types with the *max-plus tropical semiring* over ℕ.
+Tropical addition (max) models speculative parallelism: the cost of two
+concurrent branches is the bottleneck, not the sum.  Tropical multiplication
+(nat addition) models sequential composition.
+
+We give two machine-checked formalisations:
+
+* In *Lean 4* (no Mathlib): a `CommSemiring Tropical` instance, a session
+  type system graded by tropical values, and two theorems —
+  `soundness` (static grade = dynamic wall-clock span) and
+  `tropical_grade_le_sequentialTotal` (tropical budget ≤ QTT billing).
+
+* In *Isabelle/HOL*: the full max-plus and min-plus matrix algebra, including
+  `trop_mat_pow_eq_sum_walks` (matrix power = tropical sum over walks),
+  `floyd_warshall` (star = max simple path weight), and the CNO normal-form
+  theorem A** = A*.
+
+The two formalisations are connected by a bridge:
+`soundness` is the session-type instance of `trop_mat_pow_eq_sum_walks`,
+and `tropical_grade_le_sequentialTotal` is the session-type instance of
+`tropical_add_idem` (idempotency of the dioid).
+
+The Isabelle development is submitted to the Archive of Formal Proofs.
+
+== §1  Introduction  (target: 2 pages)
+
+=== 1.1  The billing/budget divergence problem
+
+Classical QTT bills parallel branches as `n1 + n2` (sum of both costs).
+Real speculative execution costs `max(n1, n2)` (wait for the bottleneck).
+For a 100-branch speculation tree, the divergence is up to 100×.
+
+*Running example:* a two-branch speculative RPC session.  One branch
+fetches from cache (cost 1); the other fetches from disk (cost 10).
+QTT bills 11; the wall clock measures 10.
+
+=== 1.2  Contributions
+
+1. The *tropical session type system*: syntax, grade function, and
+   operational semantics (`Span`).
+2. Machine-checked proof of *soundness* (`grade s = Span s`) in Lean 4.
+3. Machine-checked proof of *QTT refinement* (`Span s ≤ sequentialTotal s`)
+   and identification of the underlying algebraic fact (`tropical_add_idem`).
+4. *Full Isabelle/HOL matrix algebra* connecting the session-type result to
+   the walk-semantics of tropical matrix power.
+5. *CNO normal form* in Isabelle: A** = A* (idempotency of the star
+   operator), placing the tropical star in the Absolute Zero CNO framework.
+
+=== 1.3  Paper organisation
+
+§2 background; §3 Lean 4 formalisation; §4 Isabelle formalisation;
+§5 cross-system bridge; §6 Protocol Squisher connection; §7 related work.
+
+== §2  Background  (target: 3 pages)
+
+=== 2.1  The max-plus tropical semiring
+
+Define `tropical = ℕ ∪ {−∞}` with:
+- `a ⊕ b = max(a, b)` (identity: −∞)
+- `a ⊗ b = a + b`    (identity: 0)
+
+Prove it is a `comm_semiring_1`.  Note idempotency (`a ⊕ a = a`) —
+the dioid property that places it outside the ring hierarchy.
+
+Show the induced order: `a ≤ b ⟺ a ⊕ b = b` (equivalently, `max a b = b`).
+
+*Lean 4 definitions:* `Tropical`, `tAdd`, `tMul`, `CommSemiring Tropical`
+instance from `TropicalSessionTypes.lean`.
+
+*Isabelle definitions:* `tropical`, `trop_add`, `trop_mul`,
+`comm_semiring_1` chain in `Tropical_v2.thy`.
+
+=== 2.2  Session types (Honda 1998)
+
+Brief introduction to binary session types: send, receive, end, and
+parallel composition.  The type system guarantees deadlock-freedom.
+No resource grading in the original system.
+
+=== 2.3  Quantitative Type Theory (Atkey 2018)
+
+QTT grades types by elements of a semiring, tracking resource usage.
+Standard semiring addition for branching: `grade(A | B) = grade(A) + grade(B)`.
+This overestimates wall-clock cost for speculative/parallel branches.
+
+=== 2.4  The connection: dioid grading
+
+Replace the QTT semiring with the tropical dioid.  Idempotency `a ⊕ a = a`
+is the key: it prevents double-counting when the same resource is available
+along both branches of a speculation.
+
+== §3  Lean 4 Formalisation  (target: 4 pages)
+
+Source: `TropicalSessionTypes.lean` (verified Lean 4.29.0, `import Init`).
+
+=== 3.1  The `Tropical` type
+
+[source,lean4]
+----
+inductive Tropical where
+  | val : Nat → Tropical
+  | bot : Tropical
+  deriving DecidableEq, Repr
+----
+
+`bot` = −∞ (additive zero / absorbing under multiplication).
+`val 0` = 0 (multiplicative identity).
+
+=== 3.2  CommSemiring instance
+
+13 laws proved individually (`add_comm`, `add_assoc`, `bot_add`, `add_bot`,
+`mul_comm`, `mul_assoc`, `one_mul_trop`, `mul_one_trop`, `bot_mul`,
+`mul_bot`, `left_distrib_trop`, `right_distrib_trop`),
+then bundled into `instance : CommSemiring Tropical`.
+
+Key algebraic fact: `nat_mul_add_max_left` (`k + max m n = max (k+m) (k+n)`)
+is the nat-level fact that makes left distributivity go through.
+
+=== 3.3  The session type calculus
+
+[source,lean4]
+----
+inductive Session where
+  | end_session : Session
+  | send        : Session → Session
+  | recv        : Session → Session
+  | spec_par    : Session → Session → Session
+----
+
+Design decisions:
+- `send` costs 1 (active party), `recv` costs 0.
+- `recv` written `val 0 * grade s` for structural uniformity.
+- `spec_par` uses `tAdd` (max), not `+` (sum).
+- No recursion yet; future work (see §7).
+
+=== 3.4  Theorem 1: Soundness
+
+[source,lean4]
+----
+def grade  : Session → Tropical
+def Span   : Session → Nat
+
+theorem soundness (s : Session) : grade s = .val (Span s)
+----
+
+`Span` mirrors `grade` exactly (same recursive structure); it is the
+adequate internal model for soundness.  The proof is uniform across all
+cases by `simp`.
+
+*Algebraic reading:* `grade` is a static tropical matrix entry;
+`Span` is the dynamic inductive semantics.  Soundness says they agree.
+
+=== 3.5  Theorem 2: QTT Refinement
+
+[source,lean4]
+----
+def sequentialTotal : Session → Nat
+
+theorem tropical_grade_le_sequentialTotal (s : Session) :
+    Span s ≤ sequentialTotal s
+----
+
+`sequentialTotal` is the QTT billing function (uses `+` for `spec_par`).
+The proof uses `omega` which discharges `max(a,b) ≤ a+b` automatically.
+
+*Algebraic reading:* this is `tropical_add_idem` in Isabelle:
+`a ⊕ b ≤ a + b` (as naturals) because `max a b ≤ a + b`.
+The dioid's idempotency is the source of the tighter bound.
+
+=== 3.6  grade_ne_bot
+
+[source,lean4]
+----
+theorem grade_ne_bot (s : Session) : grade s ≠ .bot
+----
+
+Corollary of soundness: `grade s = .val (Span s)` and `val n ≠ bot`.
+All valid sessions have finite cost; `bot` (−∞) can never be a grade.
+
+== §4  Isabelle Formalisation  (target: 5 pages)
+
+Source: `Tropical_v2.thy`, `Tropical_Matrices_Full.thy`,
+`Tropical_Kleene.thy`, `Tropical_CNO.thy`.
+
+=== 4.1  Tropical_v2.thy: both semiring variants
+
+Max-plus (`tropical`) and min-plus (`tropical_min`) in a single theory.
+Key additions over the basic semiring: `linorder`, `order_bot`,
+`trop_sum_eq_Max` (the key lemma reducing walk-weight sums to `Max`),
+and the `tropical_arith` / `tropm_arith` proof methods.
+
+`trop_sum_eq_Max`:
+[source,isabelle]
+----
+lemma trop_sum_eq_Max:
+  "finite S ⟹ S ≠ {} ⟹ trop_sum g S = Fin (Max (g ` S))"
+----
+
+This reduces 14–18-line downstream proofs to 2–7 lines.
+
+=== 4.2  Tropical_Matrices_Full.thy: walk semantics
+
+Matrix types `trop_mat = nat ⇒ nat ⇒ tropical` with tropical matrix
+multiplication:
+
+[source,isabelle]
+----
+definition trop_mat_mul :: "nat ⇒ trop_mat ⇒ trop_mat ⇒ trop_mat" where
+  "trop_mat_mul n A B ≡ λi j. ∑ k ∈ {..<n}. A i k * B k j"
+----
+
+Walk sets `walks n k i j` (k-edge walks from i to j in an n-vertex graph)
+and the path-weight function.
+
+*Theorem `trop_mat_pow_eq_sum_walks`* (the Isabelle counterpart of Lean
+`soundness`):
+
+[source,isabelle]
+----
+theorem trop_mat_pow_eq_sum_walks:
+  "i < n ⟹ j < n ⟹
+   trop_mat_pow n A k i j = ∑ w ∈ walks n k i j. path_weight A w"
+----
+
+Proof by induction on k; the inductive step uses `walks_Suc` (walk
+factorisation) and commutativity of the two-level sum.
+
+*Theorem `floyd_warshall`* (max-plus, under `no_pos_cycle`):
+closed matrix star = max simple path weight.
+
+=== 4.3  Tropical_Kleene.thy: the star operator
+
+[source,isabelle]
+----
+definition trop_mat_star :: "nat ⇒ trop_mat ⇒ trop_mat" where
+  "trop_mat_star n A ≡ trop_mat_pow n (trop_mat_close n A) (n-1)"
+----
+
+`trop_mat_star_equation`: A* = I ⊕ A·A* (the classical star equation).
+`trop_mat_star_least_prefixpoint`: A* is the least solution to X ≥ I ⊕ A·X.
+
+Two sorries to close: a pigeonhole argument and a membership step in
+`trop_mat_pow_n_le_star`.  Fix paths documented in `docs/HANDOVER_v2.adoc`.
+
+=== 4.4  Tropical_CNO.thy: the normal-form theorem
+
+*Theorem `trop_mat_star_idem`* (A** = A*, the CNO normal form):
+
+[source,isabelle]
+----
+theorem trop_mat_star_idem:
+  "n > 0 ⟹ trop_mat_star n (trop_mat_star n A) = trop_mat_star n A"
+----
+
+This says: applying the Kleene star twice is the same as applying it once.
+In the Absolute Zero framework, this places `trop_mat_star n` in the class
+of Certified Null Operations (CNOs) — transformations whose second
+application costs O(0) additional computation.
+
+== §5  The Cross-System Bridge  (target: 2 pages)
+
+=== 5.1  soundness = trop_mat_pow_eq_sum_walks
+
+Both theorems say: *static recursive definition = inductive operational semantics*.
+
+Lean `soundness`:
+[source,lean4]
+----
+grade s = .val (Span s)
+----
+
+Isabelle `trop_mat_pow_eq_sum_walks`:
+[source,isabelle]
+----
+trop_mat_pow n A k i j = ∑ w ∈ walks n k i j. path_weight A w
+----
+
+The bridge: define `session_matrix : Session → nat → trop_mat` mapping
+a session to its adjacency matrix.  Then `grade s = trop_mat_star 2
+(session_matrix s) 0 1` (entry 0→1 of the 2-node session matrix).
+Lean soundness becomes the k=1 case of `trop_mat_pow_eq_sum_walks`.
+
+*Target lemma:* `tropical_soundness_bridge` (~10 lines, pending).
+
+=== 5.2  tropical_grade_le_sequentialTotal = tropical_add_idem
+
+Lean `tropical_grade_le_sequentialTotal` uses `omega` to discharge
+`max(a, b) ≤ a + b`.  In Isabelle:
+
+[source,isabelle]
+----
+lemma trop_add_le_sum:
+  "(a :: tropical) + b ≤ a + b"  (* trivially *)
+  -- but the non-trivial direction:
+lemma trop_add_idem_le:
+  "trop_add a b ≤ a + b"  (* trop_add = max ≤ nat+ *)
+----
+
+This is the algebraic source of the QTT refinement: the dioid's idempotency
+(a ⊕ a = a) implies a ⊕ b ≤ a + b, which is why the tropical grade is
+always a lower bound on the QTT bill.  (~2 lines in Isabelle.)
+
+=== 5.3  spec_par = trop_mat_add
+
+`spec_par s1 s2` with `grade = tAdd (grade s1) (grade s2)` is `trop_mat_add`
+on single-entry session matrices.  Making this explicit gives a machine-checked
+session type checker backed by `floyd_warshall`.  (Pending — §7 future work.)
+
+== §6  Protocol Squisher Connection  (target: 1 page)
+
+Protocol Squisher's four transport classes (Concorde > Business > Economy >
+Wheelbarrow, ordered by fidelity) form a bounded join-semilattice.  Adapter
+composition takes the worst class; alternative paths take the best.
+
+Finding the optimal adapter path is a *tropical minimax problem*: minimise
+(over all paths) the maximum class degradation.  This is solved by
+`bellman_ford` (the min-plus dual of `floyd_warshall`) instantiated at the
+4-element chain.
+
+Formal proof target: `protocol-squisher/proofs/tropical/TropicalAdapter.lean`
+(or `.thy`), connecting the transport class semilattice to `Tropical_v2.thy`
+via a semiring homomorphism from `{0,1,2,3}` to `tropical_min`.
+
+== §7  Related Work  (target: 1.5 pages)
+
+=== 7.1  Session types
+
+- Honda, Vasconcelos, Kubo (1998) — binary session types, deadlock freedom.
+- Honda, Yoshida, Carbone (2008) — multiparty session types.
+- Gay & Vasconcelos (2010) — linear type theory for asynchronous session types.
+
+=== 7.2  Quantitative Type Theory
+
+- Atkey (2018) — QTT: semiring-graded types, resource sensitivity.
+- McBride (2016) — I got plenty of nuthin': resource accounting in type theory.
+- Brunel et al. (2014) — parametric resource usage in graded types.
+
+=== 7.3  Tropical algebra
+
+- Maclagan & Sturmfels (2015) — *Introduction to Tropical Geometry*.
+  Standard reference for tropical algebraic geometry.
+- Simon (1988), Gaubert (1992) — tropical matrix theory and shortest paths.
+- Akian, Bapat, Gaubert (2006) — max-plus algebra in optimal control.
+
+=== 7.4  Formal verification of semirings
+
+- AFP: *Dioid* (Guttmann, 2013) — dioids and Kleene algebras in Isabelle.
+  Our work extends this with the walk-semantics connection.
+- AFP: *Kleene_Algebra* (Armstrong, Foster, Struth, Weber, 2013).
+  `trop_mat_star_equation` is the KA star axiom; registering `tropical`
+  in this AFP entry is listed as future work.
+
+=== 7.5  Resource-aware concurrency
+
+- Ghilezan et al. (2019) — graded session types.
+- Orchard & Yoshida (2016) — effects as sessions.
+- None of the above use the tropical semiring for speculative parallelism.
+
+== §8  Future Work  (bullet list for discussion section)
+
+- *Recursion in session types:* `μX.S` requires coinductive grade, or
+  a fixpoint semantics in the tropical semiring.  `trop_mat_star` is the
+  candidate: `grade(μX.S) = trop_mat_star 1 (session_matrix S) 0 0`.
+- *Choice constructors:* `internal_choice` / `external_choice`; grade
+  uses `tAdd` (max = worst case) or `tMul + trop_mat_star` for
+  external choice (best case over branches).
+- *Multiparty sessions:* extend to n-party sessions; the adjacency matrix
+  becomes n×n; `floyd_warshall` gives the global cost bound.
+- *AFP entry:* register `tropical_semiring` and `tropical_matrix_algebra`
+  in the Archive of Formal Proofs.
+- *Kleene algebra bridge:* register `tropical` in AFP `Kleene_Algebra`;
+  `trop_mat_star_equation` is the KA star axiom.
+- *QTT quotient morphism:* state `sequentialTotal / linearBilling` as a
+  semiring quotient morphism; proved by refinement theorem but not yet
+  stated formally.
+
+== §9  AFP Submission Checklist  (internal — not in paper)
+
+[cols="1,3"]
+|===
+|Status |Item
+
+|✅
+|`ROOT` file written
+
+|✅
+|`document/root.tex` written
+
+|✅
+|`document/root.bib` written
+
+|✅
+|`README` with submission checklist
+
+|⬜
+|All 10 sorries closed (see `docs/HANDOVER_v2.adoc` §2 for close order)
+
+|⬜
+|`AFP/metadata.yaml` created (title, authors, abstract, topic, licence)
+
+|⬜
+|Final `isabelle build -D . -v Tropical_Semirings` on clean install
+
+|⬜
+|Lean build: `lake build` (after adding `lakefile.lean`)
+
+|⬜
+|arXiv preprint submitted; DOI recorded in `README`
+|===
+
+== Appendix A  Notation Reference
+
+[cols="1,2,2"]
+|===
+|Symbol |Max-plus meaning |Min-plus meaning
+
+|`⊕`
+|max (bottleneck)
+|min (best path)
+
+|`⊗`
+|+ (sequential cost)
+|+ (sequential cost)
+
+|`0` / `bot`
+|−∞ (absent / impossible)
+|+∞ (absent / impossible)
+
+|`1` / identity
+|0 (zero cost step)
+|0 (zero cost step)
+
+|`A^k`
+|k-hop max-cost matrix
+|k-hop min-cost matrix
+
+|`A*`
+|(I⊕A)^{n-1} = max simple path
+|(I⊕A)^{n-1} = min simple path
+
+|`A** = A*`
+|CNO normal form (star idempotent)
+|dual CNO normal form
+|===
