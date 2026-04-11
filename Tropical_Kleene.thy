@@ -158,14 +158,139 @@ text \<open>
 \<close>
 
 theorem trop_mat_star_equation:
-  assumes "i < n" "j < n" "0 < n"
+  assumes "i < n" "j < n" "0 < n" "no_pos_cycle n A"
   shows "trop_mat_star n A i j =
          trop_mat_add n (trop_mat_id n) (trop_mat_mul n A (trop_mat_star n A)) i j"
-  (* proof sketch: antisymmetry; both directions use trop_mat_star_eq_sum_pow
-     and re-indexing of the power sum.  The pivotal step is that A^n i j \<le> A* i j,
-     which under no_pos_cycle follows from cycle_shortcutting (any n-edge walk
-     repeats a vertex, so it contains a cycle that can be excised). *)
-  sorry
+proof (rule antisym)
+  (* (\<le>) direction: A* \<le> I \<oplus> A \<cdot> A*
+     Show each summand A^m for m \<le> n-1 is dominated. *)
+  show "trop_mat_star n A i j \<le>
+        trop_mat_add n (trop_mat_id n) (trop_mat_mul n A (trop_mat_star n A)) i j"
+  proof -
+    have star_sum: "trop_mat_star n A i j = (\<Sum> m \<in> {..n-1}. trop_mat_pow n A m i j)"
+      using assms(1,2) by (rule trop_mat_star_eq_sum_pow)
+    have each_le: "\<forall> m \<in> {..n-1}.
+         trop_mat_pow n A m i j \<le>
+         trop_mat_add n (trop_mat_id n) (trop_mat_mul n A (trop_mat_star n A)) i j"
+    proof
+      fix m assume hm: "m \<in> {..n-1}"
+      show "trop_mat_pow n A m i j \<le>
+            trop_mat_add n (trop_mat_id n) (trop_mat_mul n A (trop_mat_star n A)) i j"
+      proof (cases m)
+        case 0
+        (* A^0 = I \<le> I \<oplus> A \<cdot> A* *)
+        show ?thesis
+          by (simp add: "0" trop_mat_add_def le_add_same_cancel1)
+      next
+        case (Suc m')
+        (* A^{Suc m'} = A \<cdot> A^{m'} \<le> A \<cdot> A* \<le> I \<oplus> A \<cdot> A* *)
+        have hm': "m' \<le> n - 1"
+          using hm Suc by simp
+        have pow_le_star: "trop_mat_pow n A m' i' j' \<le> trop_mat_star n A i' j'"
+          if "i' < n" "j' < n" for i' j'
+          using that hm' by (rule trop_mat_pow_le_star)
+        (* Helper: A^{Suc m'} = A · A^{m'} pointwise at (i,j) *)
+        have pow_Suc_eq: "trop_mat_pow n A (Suc m') i j =
+                          trop_mat_mul n A (trop_mat_pow n A m') i j"
+        proof -
+          have "trop_mat_pow n A (Suc m') i j = trop_mat_pow n A (1 + m') i j" by simp
+          also have "\<dots> = trop_mat_mul n (trop_mat_pow n A 1) (trop_mat_pow n A m') i j"
+            using assms(1,2) by (rule trop_mat_pow_add)
+          also have "\<dots> = (\<Sum> l \<in> {..<n}. trop_mat_pow n A 1 i l * trop_mat_pow n A m' l j)"
+            by (simp add: trop_mat_mul_def)
+          also have "\<dots> = (\<Sum> l \<in> {..<n}. A i l * trop_mat_pow n A m' l j)"
+            by (rule sum.cong, simp) (simp add: trop_mat_pow_one assms(1))
+          also have "\<dots> = trop_mat_mul n A (trop_mat_pow n A m') i j"
+            by (simp add: trop_mat_mul_def)
+          finally show ?thesis by simp
+        qed
+        have am_le: "trop_mat_pow n A (Suc m') i j \<le>
+                     trop_mat_mul n A (trop_mat_star n A) i j"
+        proof -
+          have "trop_mat_pow n A (Suc m') i j =
+                (\<Sum> l \<in> {..<n}. A i l * trop_mat_pow n A m' l j)"
+            using pow_Suc_eq by (simp add: trop_mat_mul_def)
+          also have "\<dots> \<le> (\<Sum> l \<in> {..<n}. A i l * trop_mat_star n A l j)"
+          proof (rule sum_mono)
+            fix l assume hl: "l \<in> {..<n}"
+            show "A i l * trop_mat_pow n A m' l j \<le> A i l * trop_mat_star n A l j"
+              using trop_mul_le_mul_right[OF pow_le_star[OF hl assms(2)]] .
+          qed
+          also have "\<dots> = trop_mat_mul n A (trop_mat_star n A) i j"
+            by (simp add: trop_mat_mul_def)
+          finally show ?thesis .
+        qed
+        show ?thesis
+          using am_le Suc
+          by (simp add: trop_mat_add_def le_add_same_cancel2)
+      qed
+    qed
+    show ?thesis
+      unfolding star_sum
+      by (rule sum_le_const) (use each_le in auto) simp
+  qed
+next
+  (* (\<ge>) direction: I \<oplus> A \<cdot> A* \<le> A* *)
+  show "trop_mat_add n (trop_mat_id n) (trop_mat_mul n A (trop_mat_star n A)) i j \<le>
+        trop_mat_star n A i j"
+  proof -
+    have id_le: "trop_mat_id n i j \<le> trop_mat_star n A i j"
+      using assms(1,2) by (rule trop_mat_star_ge_id)
+    have mul_le: "trop_mat_mul n A (trop_mat_star n A) i j \<le> trop_mat_star n A i j"
+    proof -
+      (* Expand A \<cdot> A* = \<Sum>_{m \<le> n-1} A^{m+1} = \<Sum>_{m \in {1..n}} A^m *)
+      have star_sum: "trop_mat_star n A i j = (\<Sum> m \<in> {..n-1}. trop_mat_pow n A m i j)"
+        using assms(1,2) by (rule trop_mat_star_eq_sum_pow)
+      have expand_mul: "trop_mat_mul n A (trop_mat_star n A) i j =
+                        (\<Sum> m \<in> {..n-1}. trop_mat_pow n A (Suc m) i j)"
+      proof -
+        have "trop_mat_mul n A (trop_mat_star n A) i j
+              = (\<Sum> l \<in> {..<n}. A i l * (\<Sum> m \<in> {..n-1}. trop_mat_pow n A m l j))"
+          by (simp add: trop_mat_mul_def star_sum)
+        also have "\<dots> = (\<Sum> l \<in> {..<n}. \<Sum> m \<in> {..n-1}. A i l * trop_mat_pow n A m l j)"
+          by (rule sum.cong) (simp_all add: sum_distrib_left)
+        also have "\<dots> = (\<Sum> m \<in> {..n-1}. \<Sum> l \<in> {..<n}. A i l * trop_mat_pow n A m l j)"
+          by (rule sum.swap)
+        also have "\<dots> = (\<Sum> m \<in> {..n-1}. trop_mat_pow n A (Suc m) i j)"
+        proof (rule sum.cong, simp)
+          fix m
+          (* Show Σ_l A i l * A^m l j = A^{Suc m} i j *)
+          have "trop_mat_pow n A (Suc m) i j = trop_mat_pow n A (1 + m) i j" by simp
+          also have "\<dots> = trop_mat_mul n (trop_mat_pow n A 1) (trop_mat_pow n A m) i j"
+            using assms(1,2) by (rule trop_mat_pow_add)
+          also have "\<dots> = (\<Sum> l \<in> {..<n}. trop_mat_pow n A 1 i l * trop_mat_pow n A m l j)"
+            by (simp add: trop_mat_mul_def)
+          also have "\<dots> = (\<Sum> l \<in> {..<n}. A i l * trop_mat_pow n A m l j)"
+            by (rule sum.cong, simp) (simp add: trop_mat_pow_one assms(1))
+          finally show "(\<Sum> l \<in> {..<n}. A i l * trop_mat_pow n A m l j) =
+                        trop_mat_pow n A (Suc m) i j" by simp
+        qed
+        finally show ?thesis .
+      qed
+      have "trop_mat_mul n A (trop_mat_star n A) i j =
+            (\<Sum> m \<in> {..n-1}. trop_mat_pow n A (Suc m) i j)"
+        using expand_mul .
+      also have "\<dots> \<le> trop_mat_star n A i j"
+      proof (rule sum_le_const)
+        fix m assume hm: "m \<in> {..n-1}"
+        show "trop_mat_pow n A (Suc m) i j \<le> trop_mat_star n A i j"
+        proof (cases "Suc m \<le> n - 1")
+          case True
+          thus ?thesis using assms(1,2) by (rule trop_mat_pow_le_star)
+        next
+          case False
+          (* m = n-1 so Suc m = n, use trop_mat_pow_n_le_star *)
+          have "Suc m = n" using hm False by simp
+          thus ?thesis
+            by (simp add: trop_mat_pow_n_le_star[OF assms(1,2,4,3)])
+        qed
+      qed simp
+      finally show ?thesis .
+    qed
+    show ?thesis
+      by (simp add: trop_mat_add_def add_le_add[OF id_le mul_le] tropical_add_idem)
+  qed
+qed
 
 (* ================================================================== *)
 section \<open>Part IV  Star and Simple Paths\<close>
@@ -205,11 +330,10 @@ text \<open>
 \<close>
 
 lemma trop_mat_star_prefixpoint:
-  assumes "i < n" "j < n" "0 < n"
+  assumes "i < n" "j < n" "0 < n" "no_pos_cycle n A"
   shows "trop_mat_add n (trop_mat_id n) (trop_mat_mul n A (trop_mat_star n A)) i j
          \<le> trop_mat_star n A i j"
-  (* proof: star equation gives equality, so inequality is reflexivity *)
-  by (simp add: trop_mat_star_equation[OF assms, symmetric])
+  by (simp add: trop_mat_star_equation[OF assms(1,2,3,4), symmetric])
 
 (* ------------------------------------------------------------------ *)
 subsection \<open>10  A^n \<le> A* Under No-Pos-Cycle\<close>
@@ -236,55 +360,55 @@ proof -
     using assms(1,2) by (rule trop_mat_star_eq_sum_walks_le)
   (* It suffices to show each walk w in walks n n i j is dominated by
      some walk in walks_le n (n-1) i j. *)
-  show ?thesis
-  proof -
-    have dom: "\<forall> w \<in> walks n n i j. \<exists> w' \<in> walks_le n (n-1) i j.
-                 path_weight A w \<le> path_weight A w'"
+  have dom: "\<forall> w \<in> walks n n i j. \<exists> w' \<in> walks_le n (n-1) i j.
+               path_weight A w \<le> path_weight A w'"
+  proof
+    fix w assume hw: "w \<in> walks n n i j"
+    have len_w: "length w = Suc n" using hw unfolding walks_def by simp
+    have set_w: "set w \<subseteq> {..<n}" using hw unfolding walks_def by simp
+    have hnd: "\<not> distinct w"
     proof
-      fix w assume hw: "w \<in> walks n n i j"
-      (* w is a list of length n+1 with elements in {..<n}.
-         Since there are n+1 elements in {..<n}, by the pigeonhole principle
-         there must be a repeated element, so w is not distinct. *)
-      have len_w: "length w = Suc n"
-        using hw unfolding walks_def by simp
-      have set_w: "set w \<subseteq> {..<n}"
-        using hw unfolding walks_def by simp
-      have "\<not> distinct w"
-      proof -
-        (* OFFICIAL SORRY: pigeonhole step.
-           We need: a list of length Suc n with elements in {..<n} cannot be distinct.
-           Proof: if distinct w then card (set w) = length w = Suc n,
-           but set w \<subseteq> {..<n} so card (set w) \<le> n, contradiction.
-           Key lemmas: distinct_card, card_mono, card_lessThan. *)
-        sorry
-      qed
-      then obtain w' where hw': "path_weight A w \<le> path_weight A w'"
-                                 "length w' < length w"
-                                 "hd w' = hd w" "last w' = last w"
-        using path_weight_cycle_excise[of _ w A]
-        (* OFFICIAL SORRY: applying cycle_shortcutting to get a shorter walk
-           with at least as high weight.
-           Once \<not> distinct w is established, cycle_shortcutting gives w' with:
-             path_weight A w \<le> path_weight A w'
-             length w' < length w = Suc n
-             hd/last preserved
-           So w' \<in> walks_le n (n-1) i j. *)
-        sorry
-      (* w' has length < Suc n, i.e. length \<le> n, i.e. it is a (n-1)-edge (or fewer) walk *)
-      have "w' \<in> walks_le n (n - 1) i j"
-        unfolding walks_le_def walks_def
-        (* proof sketch: length w' \<le> n = Suc(n-1), hd/last from hw, set \<subseteq> {..<n}
-           carried over from the cycle excision. *)
-        sorry
-      thus "\<exists> w' \<in> walks_le n (n-1) i j. path_weight A w \<le> path_weight A w'"
-        using hw' by auto
+      assume hd: "distinct w"
+      have "card (set w) = length w" using distinct_card[OF hd] .
+      also have "\<dots> = Suc n" using len_w .
+      finally have "card (set w) = Suc n" .
+      moreover have "card (set w) \<le> n"
+        using card_mono[OF finite_lessThan set_w] by simp
+      ultimately show False by simp
     qed
-    (* Now use the dominated-sum lemma to conclude *)
-    show ?thesis
-      unfolding walks_eq star_eq trop_walks_sum_def
-      (* proof sketch: trop_sum_dominated applied to the domination above *)
-      sorry
+    obtain xs v ys zs where hdecomp: "w = xs @ v # ys @ v # zs"
+      using not_distinct_decomp[OF hnd] by blast
+    have hv1: "v \<in> set (butlast w)"
+    proof -
+      have hpos: "length xs < length (butlast w)" by (simp add: hdecomp)
+      have "butlast w ! length xs = v"
+        by (simp add: hdecomp nth_butlast nth_append)
+      thus ?thesis by (metis hpos nth_mem)
+    qed
+    have hv2: "v \<in> set (tl w)"
+      using hdecomp by (cases xs) (auto simp: set_append)
+    obtain w' where hge: "path_weight A w \<le> path_weight A w'"
+               and hlen: "length w' < length w"
+               and hne': "w' \<noteq> []"
+               and hhd: "hd w' = hd w"
+               and hlast: "last w' = last w"
+               and hset: "set w' \<subseteq> {..<n}"
+      using path_weight_cycle_excise[OF hv1 hv2 assms(3) hw] by blast
+    have hw'_in: "w' \<in> walks_le n (n-1) i j"
+      unfolding walks_le_def
+    proof (rule UN_I[of "length w' - 1"])
+      show "length w' - 1 \<in> {..n-1}" using hlen len_w by simp
+      show "w' \<in> walks n (length w' - 1) i j"
+        unfolding walks_def
+        using hne' hhd hlast hset
+        by (auto simp: walk_hd[OF hw] walk_last[OF hw])
+    qed
+    show "\<exists> w' \<in> walks_le n (n-1) i j. path_weight A w \<le> path_weight A w'"
+      using hge hw'_in by auto
   qed
+  have "trop_walks_sum A (walks n n i j) \<le> trop_walks_sum A (walks_le n (n-1) i j)"
+    using trop_walks_sum_dominated[OF finite_walks finite_walks_le dom] .
+  thus ?thesis using walks_eq star_eq by simp
 qed
 
 (* ------------------------------------------------------------------ *)
@@ -314,29 +438,63 @@ theorem trop_mat_star_least_prefixpoint:
   assumes "i < n" "j < n" "0 < n"
   shows "trop_mat_star n A i j \<le> X i j"
 proof -
-  (* Step 1: X dominates every power A^k for k \<le> n-1 *)
-  have pow_le_X: "\<forall> k \<le> n - 1. trop_mat_pow n A k i j \<le> X i j"
-  proof (intro allI impI)
-    fix k assume hk: "k \<le> n - 1"
-    show "trop_mat_pow n A k i j \<le> X i j"
-    proof (induction k)
-      case 0
-      (* A^0 = I \<le> I \<oplus> A \<cdot> X \<le> X *)
-      have "trop_mat_id n i j \<le>
-            trop_mat_add n (trop_mat_id n) (trop_mat_mul n A X) i j"
+  (* Step 1: X dominates every power A^k pointwise — proved by induction on k *)
+  have pow_le_X_gen: "\<forall> k. k \<le> n - 1 \<longrightarrow>
+       (\<forall> i' < n. \<forall> j' < n. trop_mat_pow n A k i' j' \<le> X i' j')"
+  proof (induction k)
+    case 0
+    show ?case
+    proof (intro impI allI)
+      fix i' j' assume "i' < n" "j' < n"
+      have "trop_mat_id n i' j' \<le>
+            trop_mat_add n (trop_mat_id n) (trop_mat_mul n A X) i' j'"
         by (simp add: trop_mat_add_def le_add_same_cancel1)
-      also have "\<dots> \<le> X i j" using assms(1,2,3) by auto
-      finally show ?case by simp
-    next
-      case (Suc k)
-      (* A^{Suc k} = A^k \<cdot> A \<le> X \<cdot> A ?? — need to argue differently *)
-      (* proof sketch: by IH, X dominates A^k pointwise.
-         From X \<ge> A \<cdot> X (second component of the prefixpoint inequality),
-         and A^k \<le> X, we get A \<cdot> A^k \<le> A \<cdot> X \<le> X.
-         This requires an auxiliary monotonicity lemma for tropical matrix mul. *)
-      sorry
+      also have "\<dots> \<le> X i' j'" using assms(1) \<open>i' < n\<close> \<open>j' < n\<close> by auto
+      finally show "trop_mat_pow n A 0 i' j' \<le> X i' j'" by simp
+    qed
+  next
+    case (Suc k)
+    show ?case
+    proof (intro impI allI)
+      fix i' j'
+      assume hk: "Suc k \<le> n - 1" and hi': "i' < n" and hj': "j' < n"
+      have hk': "k \<le> n - 1" using hk by simp
+      have ih: "\<forall> i'' < n. \<forall> j'' < n. trop_mat_pow n A k i'' j'' \<le> X i'' j''"
+        using Suc.IH hk' by auto
+      have eq_pow: "trop_mat_pow n A (Suc k) i' j' =
+                    (\<Sum> l \<in> {..<n}. A i' l * trop_mat_pow n A k l j')"
+      proof -
+        have "trop_mat_pow n A (Suc k) i' j' = trop_mat_pow n A (1 + k) i' j'" by simp
+        also have "\<dots> = trop_mat_mul n (trop_mat_pow n A 1) (trop_mat_pow n A k) i' j'"
+          using hi' hj' by (rule trop_mat_pow_add)
+        also have "\<dots> = (\<Sum> l \<in> {..<n}. trop_mat_pow n A 1 i' l * trop_mat_pow n A k l j')"
+          by (simp add: trop_mat_mul_def)
+        also have "\<dots> = (\<Sum> l \<in> {..<n}. A i' l * trop_mat_pow n A k l j')"
+          by (rule sum.cong, simp) (simp add: trop_mat_pow_one hi')
+        finally show ?thesis by simp
+      qed
+      show "trop_mat_pow n A (Suc k) i' j' \<le> X i' j'"
+      proof -
+        have "trop_mat_pow n A (Suc k) i' j' =
+              (\<Sum> l \<in> {..<n}. A i' l * trop_mat_pow n A k l j')"
+          using eq_pow .
+        also have "\<dots> \<le> (\<Sum> l \<in> {..<n}. A i' l * X l j')"
+        proof (rule sum_mono)
+          fix l assume hl: "l \<in> {..<n}"
+          show "A i' l * trop_mat_pow n A k l j' \<le> A i' l * X l j'"
+            using trop_mul_le_mul_right[OF ih[rule_format, OF hl hj']] .
+        qed
+        also have "\<dots> = trop_mat_mul n A X i' j'"
+          by (simp add: trop_mat_mul_def)
+        also have "\<dots> \<le> trop_mat_add n (trop_mat_id n) (trop_mat_mul n A X) i' j'"
+          by (simp add: trop_mat_add_def le_add_same_cancel2)
+        also have "\<dots> \<le> X i' j'" using assms(1) hi' hj' by auto
+        finally show ?thesis .
+      qed
     qed
   qed
+  have pow_le_X: "\<forall> k \<le> n - 1. trop_mat_pow n A k i j \<le> X i j"
+    using pow_le_X_gen assms(2,3) by auto
   (* Step 2: A* = join of A^k for k \<le> n-1 *)
   have "trop_mat_star n A i j = (\<Sum> m \<in> {..n-1}. trop_mat_pow n A m i j)"
     using assms(2,3) by (rule trop_mat_star_eq_sum_pow)
@@ -402,15 +560,13 @@ text \<open>
   \<^item> @{text trop_mat_star_eq_sum_pow}: @{text "A*(i,j) = \<oplus>_{m\le n-1} A^m(i,j)"}.
   \<^item> @{text trop_mat_star_eq_sum_walks_le}:
       @{text "A*(i,j) = \<Sum>_{w \<in> walks_le n (n-1) i j} path_weight A w"}.
-  \<^item> @{text trop_mat_star_equation}: @{text "A* = I \<oplus> A \<cdot> A*"}  (sorry).
+  \<^item> @{text trop_mat_star_equation}: @{text "A* = I \<oplus> A \<cdot> A*"} (under @{text no_pos_cycle}).
   \<^item> @{text trop_mat_star_eq_max_simple}: under @{text no_pos_cycle},
       @{text "A*(i,j) = max simple path weight"}.
   \<^item> @{text trop_mat_star_least_prefixpoint}: @{text A*} is the least
-      solution to @{text "X \<ge> I \<oplus> A \<cdot> X"} (sorry for inductive step).
+      solution to @{text "X \<ge> I \<oplus> A \<cdot> X"}.
 
-  OFFICIAL SORRYs are in @{text trop_mat_pow_n_le_star}:
-  \<^item> SORRY 1 (line ~146): pigeonhole step (a length-Suc-n list in {..<n} is not distinct).
-  \<^item> SORRY 2 (line ~149): membership step (cycle_shortcutting yields walk in walks_le).
+  All proofs are complete — zero @{text sorry}.
 \<close>
 
 end
