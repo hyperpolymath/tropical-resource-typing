@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# ECOSYSTEM.a2ml — tropical-resource-typing ecosystem position
+
+[metadata]
+version = "0.1.0"
+last-updated = "2026-04-11"
+
+[project]
+name = "tropical-resource-typing"
+type = "research"
+purpose = """
+Foundational tropical type theory research for the hyperpolymath pipeline.
+Formalises the max-plus semiring, tropical session types, and QTT connections
+in Isabelle/HOL and Lean 4. Feeds into the protocol-squisher tropical connection.
+"""
+
+[pipeline]
+position = "research-branch"
+chain = "katagoria → typell → typed-wasm → PanLL"
+notes = """
+tropical-resource-typing is a research co-product of the type theory pipeline.
+The tropical grading work (Isabelle/HOL: max-plus semiring, dioid) and speculative
+session type extensions (Lean 4: soundness + QTT refinement) feed into the
+protocol-squisher tropical connection. Coordination in nextgen-typing.
+"""
+coordination = "nextgen-typing"
+
+[related-projects]
+projects = [
+  { name = "nextgen-typing", relationship = "coordination-parent", notes = "Canonical architecture doc for the pipeline. tropical-resource-typing is listed in the Research Section." },
+  { name = "protocol-squisher", relationship = "feeds-into", notes = "The 4-class transport semilattice (Concorde/Business/Economy/Wheelbarrow) is a tropical optimisation problem. The Isabelle and Lean 4 proofs here are the formal foundation." },
+  { name = "typell", relationship = "related-research", notes = "TypeLL's QTT semiring has structural parallels with the tropical grading. Future: tropical grades give tighter resource bounds than QTT overestimates." },
+  { name = "katagoria", relationship = "sibling-research", notes = "Both are research spaces upstream of the production pipeline. Tropical types may eventually inform TypeLL level extensions." },
+]
+
+[artefacts]
+isabelle = [
+  { file = "Tropical.thy", description = "Max-plus semiring, dioid, comm_semiring_1 instance" },
+  { file = "Tropical_v2.thy", description = "Revised semiring with improved lemma structure" },
+  { file = "Tropical_Matrices_Clean.thy", description = "Tropical matrix algebra (clean version)" },
+  { file = "Tropical_Matrices_Full.thy", description = "Tropical matrix algebra (full version)" },
+  { file = "Tropical_Kleene.thy", description = "Kleene algebra for tropical semiring" },
+  { file = "Tropical_CNO.thy", description = "CNO (Construction from Neutral Objects) tropical connection" },
+]
+lean4 = [
+  { file = "TropicalSessionTypes.lean", description = "Speculative tropical session types; soundness + QTT refinement" },
+]
+docs = [
+  { file = "docs/FORMAL-PROOFS.adoc", description = "Formal proofs documentation" },
+  { file = "docs/HANDOVER.adoc", description = "Handover guide for continuing the research" },
+]
+pdf = [
+  { file = "Tropical Resource Typing For Protocols.pdf", description = "Research paper (draft)" },
+]
