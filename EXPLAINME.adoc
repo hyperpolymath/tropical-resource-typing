@@ -25,13 +25,17 @@ verified protocol interfaces (Groove, Burble).
 https://en.wikipedia.org/wiki/Tropical_semiring[Tropical semiring],
 https://en.wikipedia.org/wiki/Session_type[Session types]
 
-**Caveat:** The repository is documentation-only at this stage. There is no
-executable proof assistant code, no Idris2/Coq mechanisation, and no test
-harness beyond `tests/validate.test.ts`. The `deno.json` and `deno.lock` suggest
-a Deno-based validation harness is planned but not yet populated. The README is
-minimal and does not summarise the PDF's claims.
+The repository now holds three formal artefacts alongside the PDF:
 
-- Primary artefact: `Tropical Resource Typing For Protocols.pdf`
+- `Tropical.thy` — Isabelle/HOL formalisation of the max-plus tropical semiring
+  over `ℕ ∪ {-∞}`.  Proves `comm_semiring_1` via a 7-step typeclass chain and
+  establishes the dioid (idempotent semiring) property separately.  Verified
+  against Isabelle 2025-1.
+- `TropicalSessionTypes.lean` — Lean 4 formalisation of speculative session types
+  graded by a tropical budget.  Proves soundness (static grade = dynamic wall-clock
+  span) and the QTT refinement (tropical grade ≤ sequential billing).
+- `Tropical Resource Typing For Protocols.pdf` — primary research artefact:
+  informal theory document.
 - Validation harness: `tests/validate.test.ts`
 - Runtime config: `deno.json`
 
@@ -95,6 +99,8 @@ mechanisation exist yet.
 | Path | Proves
 
 | `Tropical Resource Typing For Protocols.pdf` | Primary research artefact: tropical semiring resource typing theory for protocol verification
+| `Tropical.thy` | Isabelle/HOL: max-plus semiring over ℕ ∪ {-∞}, comm_semiring_1 chain, dioid (idempotency) theorem
+| `TropicalSessionTypes.lean` | Lean 4: speculative session types graded by tropical budget; soundness + QTT refinement proofs
 | `tests/validate.test.ts` | Deno-based validation harness for the PDF artefact
 | `deno.json` | Deno workspace configuration
 | `deno.lock` | Pinned dependency lock file
