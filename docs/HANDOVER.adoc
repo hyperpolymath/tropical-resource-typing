@@ -1,0 +1,211 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= Tropical Session Types: Handover Guide
+Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+2026-04-11
+:toc:
+:icons: font
+
+== Overview
+
+This guide documents the Tropical Session Types project for handover,
+covering key concepts, design choices, implementation details in Lean 4,
+known limitations, and future work.
+
+Primary artefacts:
+
+* `TropicalSessionTypes.lean` — Lean 4 source with all proofs
+* `docs/FORMAL-PROOFS.adoc` — detailed proof document
+* `Tropical.thy` — Isabelle/HOL algebraic foundations
+
+== Key Concepts
+
+=== Problem Statement
+
+[cols="1,2"]
+|===
+| Problem | Gap
+
+| Session types (Honda 1998)
+| Prove deadlock-freedom but ignore resource costs entirely.
+
+| Quantitative Type Theory (Atkey 2018)
+| Tracks resources using a standard semiring, but uses addition for
+  speculative branching — so it overestimates wall-clock time.
+
+| QTT overestimation example
+| Branch A costs 5 s, Branch B costs 10 s.  QTT bills 15 s.
+  Real parallel execution costs 10 s (the bottleneck).
+|===
+
+*Solution:* Grade session types with a max-plus tropical semiring.
+This mathematically separates:
+
+* **Billing semiring** (sequential sum `+`) — what you pay for
+* **Budget semiring** (tropical max `max`) — how long it actually takes
+
+=== The Tropical Semiring
+
+[cols="1,1,1"]
+|===
+| Operation | Classical Algebra | Tropical (max-plus)
+
+| Addition
+| `a + b`
+| `max(a, b)`
+
+| Multiplication
+| `a × b`
+| `a + b`
+
+| Additive identity
+| `0`
+| `0` (for `ℕ` variant; `-∞` for `ℤ`/`ℝ` variant)
+
+| Multiplicative identity
+| `1`
+| `0`
+|===
+
+The `ℕ` carrier is used here for simplicity; the algebraic properties
+are proved for `ℕ ∪ {-∞}` in `Tropical.thy`.
+
+*Why max for parallel branches?*  Wall-clock time is bounded by the
+slowest path, not the sum of all paths.
+
+=== Session Types with Speculative Branching
+
+[source,lean]
+----
+inductive Session where
+  | end_session : Session
+  | send        : Session → Session
+  | recv        : Session → Session
+  | spec_branch : Session → Session → Session  -- speculative parallelism
+----
+
+Design choices:
+
+* `send` costs 1 unit (message emission).
+* `recv` costs 0 units (non-blocking receive).
+* `spec_branch` evaluates both branches; wall-clock cost = `max`.
+
+== Implementation in Lean 4
+
+=== Core Definitions
+
+[cols="1,2"]
+|===
+| Component | Description
+
+| `TropicalBudget`
+| `abbrev` for `Nat`; represents wall-clock time or bottleneck cost.
+
+| `tropicalSeq`
+| Sequential cost composition: `a + b`.
+
+| `tropicalPar`
+| Parallel cost composition: `max a b`.
+
+| `tropicalGrade`
+| Static analysis: computes cost at the type level.
+
+| `EvaluatesTo`
+| Big-step operational semantics: maps sessions to runtime cost.
+
+| `linearBilling`
+| Reference model: classical QTT billing (uses `+` for branching).
+|===
+
+=== Theorems
+
+[cols="1,2"]
+|===
+| Theorem | Statement
+
+| `tropical_session_soundness`
+| `EvaluatesTo s c → c = tropicalGrade s` — the type-level grade is
+  an exact predictor of runtime cost.
+
+| `budget_strictly_bounds_billing`
+| `tropicalGrade s ≤ linearBilling s` — tropical budget is always a
+  tighter bound than QTT linear billing.
+|===
+
+=== Proof Techniques
+
+* *Structural induction* on `EvaluatesTo` (for soundness) and `Session`
+  (for refinement).
+* *`omega` tactic* — Lean 4's Presburger arithmetic solver closes the
+  arithmetic goals automatically.  `max(a,b) ≤ a+b` needs no manual case
+  split.
+* *No Mathlib required* — proofs rely only on `Init`.
+
+== Limitations
+
+[cols="1,1,2"]
+|===
+| Limitation | Impact | Mitigation
+
+| No recursion
+| Finite sessions only
+| Extend with `WellFounded` recursion or coinductive types.
+
+| Deterministic execution
+| No probabilistic cost or latency modelling
+| Replace `Nat` with `Nat × Prob` for stochastic sessions.
+
+| Binary sessions only
+| No multiparty protocols
+| Extend to multiparty session types (n-ary `spec_branch`).
+|===
+
+== Future Work
+
+=== Recursion
+
+Use sized types or coinductive types for infinite/recursive sessions.
+A recursive session `μX. (send; X)` would need a loop cost expressed
+as a tropical fixpoint.
+
+=== Probabilistic Branching
+
+Replace `Nat` with `(Nat × [0,1])` — a pair of (cost, probability).
+Composition would use expected-value semantics.
+
+=== Real-World Protocol Integration
+
+Connect to Rust's `async`/`await` model or Scribble protocol
+specifications.  The Groove protocol ABI (hyperpolymath/groove) is the
+natural integration point.
+
+=== Tooling
+
+Build a Lean 4 tactic to automate grade calculations, enabling
+programmer-facing error messages like "this speculative branch costs at
+most N units".
+
+=== Cross-Verification
+
+Connect `TropicalSessionTypes.lean` with `Tropical.thy` (Isabelle/HOL)
+to establish a cross-verified algebraic foundation — the same semiring
+axioms proved in both systems.
+
+== Handover Checklist
+
+* [x] Codebase: `TropicalSessionTypes.lean`
+* [x] Proofs: soundness and refinement theorems
+* [x] Documentation: `docs/FORMAL-PROOFS.adoc` (proof document) + this guide
+* [x] Algebraic foundations: `Tropical.thy` (Isabelle/HOL)
+* [x] Dependencies: Lean 4 only — no Mathlib or Std required
+* [ ] Recursion extension
+* [ ] Probabilistic extension
+* [ ] Multiparty sessions
+* [ ] Lean 4 tactic for automated grading
+
+== Contacts and Links
+
+* Author: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+* Repository: https://github.com/hyperpolymath/tropical-resource-typing
+* Related: https://github.com/hyperpolymath/ephapax (linear type enforcement)
+* Related: https://github.com/hyperpolymath/groove (verified protocol ABI)
+* Related: https://github.com/hyperpolymath/typell (TypeLL verification kernel)

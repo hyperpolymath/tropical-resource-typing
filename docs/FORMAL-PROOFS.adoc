@@ -1,0 +1,152 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= Formal Proofs for Tropical Session Types: Soundness and Refinement
+Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+2026-04-11
+:toc:
+:icons: font
+
+== Introduction
+
+This document formalises the soundness and refinement properties of
+Tropical Session Types using the max-plus semiring in Lean 4.  The proofs
+establish that:
+
+. The *static tropical grade* perfectly predicts dynamic execution costs.
+. The *tropical budget* strictly refines classical linear billing.
+
+The executable source is `TropicalSessionTypes.lean` in the repository root.
+
+== Definitions
+
+=== Tropical Budget Semiring
+
+[source,lean]
+----
+abbrev TropicalBudget := Nat
+
+def tropicalSeq (a b : TropicalBudget) : TropicalBudget := a + b
+def tropicalPar (a b : TropicalBudget) : TropicalBudget := max a b
+----
+
+Models two composition modes:
+
+* `tropicalSeq` — sequential cost accumulates via addition.
+* `tropicalPar` — parallel (speculative) cost is bounded by the bottleneck
+  via max.
+
+=== Session Types
+
+[source,lean]
+----
+inductive Session where
+  | end_session : Session
+  | send        : Session → Session
+  | recv        : Session → Session
+  | spec_branch : Session → Session → Session
+----
+
+`spec_branch` represents speculative parallelism: both branches execute
+simultaneously, wall-clock cost is the longer branch.  `recv` is treated as
+zero-cost (non-blocking receive).
+
+=== Static Tropical Grade
+
+[source,lean]
+----
+def tropicalGrade : Session → TropicalBudget
+  | end_session        => 0
+  | send s             => tropicalSeq 1 (tropicalGrade s)
+  | recv s             => tropicalSeq 0 (tropicalGrade s)
+  | spec_branch s1 s2  => tropicalPar (tropicalGrade s1) (tropicalGrade s2)
+----
+
+Computes cost at the type level using max-plus algebra.  No runtime needed.
+
+=== Dynamic Operational Semantics
+
+[source,lean]
+----
+inductive EvaluatesTo : Session → TropicalBudget → Prop where
+  | eval_end  : EvaluatesTo end_session 0
+  | eval_send : EvaluatesTo s c  → EvaluatesTo (send s) (1 + c)
+  | eval_recv : EvaluatesTo s c  → EvaluatesTo (recv s) c
+  | eval_spec : EvaluatesTo s1 c1 → EvaluatesTo s2 c2
+              → EvaluatesTo (spec_branch s1 s2) (max c1 c2)
+----
+
+Big-step semantics mapping a session to its wall-clock execution cost.
+`eval_spec` uses `max` — both branches run; only the bottleneck matters.
+
+== Theorems and Proofs
+
+=== Theorem 1: Soundness
+
+*Statement:* For any session `s` and cost `c`, if `EvaluatesTo s c` then
+`c = tropicalGrade s`.
+
+[source,lean]
+----
+theorem tropical_session_soundness (s : Session) (c : TropicalBudget)
+    (h : EvaluatesTo s c) : c = tropicalGrade s := by
+  induction h with
+  | eval_end            => rfl
+  | eval_send _ ih      => unfold tropicalGrade tropicalSeq; rw [ih]
+  | eval_recv _ ih      => unfold tropicalGrade tropicalSeq; rw [ih]; simp
+  | eval_spec _ _ ih1 ih2 => unfold tropicalGrade tropicalPar; rw [ih1, ih2]
+----
+
+*Key insight:* The static grade and the dynamic cost are equal by
+structural induction.  No gap between the type-level prediction and runtime
+behaviour.
+
+=== Theorem 2: Budget vs Billing Refinement
+
+*Statement:* For any session `s`, `tropicalGrade s ≤ linearBilling s`.
+
+The standard linear/QTT billing model uses addition for branching:
+
+[source,lean]
+----
+def linearBilling : Session → Nat
+  | end_session       => 0
+  | send s            => 1 + linearBilling s
+  | recv s            => linearBilling s
+  | spec_branch s1 s2 => linearBilling s1 + linearBilling s2
+----
+
+[source,lean]
+----
+theorem budget_strictly_bounds_billing (s : Session) :
+    tropicalGrade s ≤ linearBilling s := by
+  induction s with
+  | end_session        => simp [tropicalGrade, linearBilling]
+  | send s' ih         => unfold tropicalGrade tropicalSeq linearBilling; omega
+  | recv s' ih         => unfold tropicalGrade tropicalSeq linearBilling; omega
+  | spec_branch s1 s2 ih1 ih2 =>
+      unfold tropicalGrade tropicalPar linearBilling
+      apply Nat.max_le.mpr
+      exact ⟨Nat.le_trans ih1 (Nat.le_add_right _ _),
+             Nat.le_trans ih2 (Nat.le_add_left _ _)⟩
+----
+
+*Key insight:* `max(a, b) ≤ a + b` for all `a b : Nat`.  QTT overestimates
+wall-clock time for speculative branches.  Tropical grades always produce a
+tighter (lower) bound.
+
+== Conclusion
+
+The two theorems establish:
+
+* *Soundness* — static tropical grades predict dynamic execution costs exactly.
+* *Refinement* — tropical budgets are always ≤ classical linear billing,
+  proving that Quantitative Type Theory is a conservative approximation of
+  tropical resource accounting for speculative protocols.
+
+== Future Work
+
+* Extend the session calculus with recursion (sized or coinductive types).
+* Add probabilistic branching — replace `Nat` with a product `Nat × [0,1]`.
+* Multiparty sessions: extend from binary to n-party protocols.
+* Build a Lean 4 tactic to automate grade calculations.
+* Connect to the Isabelle/HOL formalisation (`Tropical.thy`) for
+  cross-verified algebraic foundations.
