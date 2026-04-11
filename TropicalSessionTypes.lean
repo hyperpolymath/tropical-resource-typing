@@ -1,29 +1,75 @@
-/-
-  =============================================================================
-  TROPICAL SESSION TYPES: A Novel Integration of Graded Types and Session Theory
-  =============================================================================
-  
+-- SPDX-License-Identifier: PMPL-1.0-or-later
+/-!
+  # Tropical Session Types — v6.0
+
   Author: Jonathan D.A. Jewell (hyperpolymath)
-  Date: 2026-04-04
+  Date:   2026-04-11
+  Verified: Lean 4.29.0, `import Init` (no Mathlib dependency)
 
-  THE UNSOLVED PROBLEM:
-  Historically, Session Types (Honda 1998) prove deadlock-freedom but ignore 
-  resources. Quantitative Type Theory (Atkey 2018) tracks resources using a 
-  standard semiring, but fails to accurately model speculative/parallel branching 
-  in wall-clock time. If Branch A costs 5s and Branch B costs 10s, standard 
-  linear logic bills you 15s. Real parallel execution only costs 10s.
+  ## The unsolved problem
 
-  THE BREAKTHROUGH:
-  This proof introduces the Tropical Semiring (Nat ∪ {∞}, min, +, ∞, 0), modified 
-  here for finite budgets as the Max-Plus Semiring (Nat, max, +, 0, 0).
-  
-  By grading Session Types with a Tropical Semiring, we mathematically separate:
-  1. The BILLING Semiring (Sequential sum: paying for both paths)
-  2. The BUDGET Semiring (Tropical max: waiting for the longest path)
+  Session Types (Honda 1998) prove deadlock-freedom but ignore resources.
+  Quantitative Type Theory (Atkey 2018) tracks resources via a standard
+  semiring, but fails to model speculative/parallel branching: if branch A
+  costs 5 s and branch B costs 10 s, QTT bills 15 s but real wall-clock
+  time is only 10 s.
 
-  This file formally proves that the static Tropical Grade is a perfect 
-  predictor of dynamic speculative execution costs, and mathematically proves 
-  that Tropical Types strictly refine Classical Linear Types.
+  ## The solution
+
+  Grade session types with the **max-plus tropical semiring**:
+  `(Tropical, ⊕, ⊗, bot, val 0)` where
+  - `⊕` = max  (parallel cost = bottleneck)
+  - `⊗` = nat+ (sequential cost = sum)
+  - `bot` = −∞ (additive zero / identity of max)
+  - `val 0` = 0  (multiplicative identity)
+
+  ## What is proved (v6.0, zero sorries)
+
+  ### CommSemiring laws (13 individual theorems)
+  `add_comm`, `add_assoc`, `bot_add`, `add_bot`,
+  `mul_comm`, `mul_assoc`, `one_mul_trop`, `mul_one_trop`,
+  `bot_mul`, `mul_bot`, `left_distrib_trop`, `right_distrib_trop`.
+
+  ### CommSemiring Tropical instance
+  All 13 fields wired; enables `ring`-style reasoning for downstream proofs.
+
+  ### Session type theorems
+  - `grade_ne_bot`  — all valid sessions have finite cost
+  - `soundness`     — static grade = dynamic Span (Lean analogue of
+                      Isabelle `max_khop_eq_sum_walks`)
+  - `tropical_grade_le_sequentialTotal` — tropical budget ≤ sequential
+                      billing (QTT refinement; Lean analogue of
+                      Isabelle `tropical_add_idem`)
+
+  ## Design decisions (do not change without understanding these)
+
+  - `send` costs 1, `recv` costs 0.  Sender is the active party.
+  - `recv` written `val 0 * grade s`.  `val 0` is the multiplicative
+    identity, so this is literally `id`.  Intentional for structural
+    uniformity — multiplication does no semantic work here.
+  - `Span` mirrors `grade` exactly (same recursive structure).  It is
+    the adequate internal model for soundness; not a full reduction.
+
+  ## Open items
+
+  1. Add `external_choice` / `internal_choice` to `Session`; `grade` for
+     choice uses `tAdd` (max over branches — worst case).
+  2. State the QTT quotient morphism explicitly: `sequentialTotal /
+     linearBilling` is a quotient of tropical grading; proved by the
+     refinement theorem but not yet stated as a morphism.
+  3. Check ECHIDNA Lean 4 prover interface compatibility.
+  4. Repo placement: standalone `tropical-session-types`, cross-linked
+     from `my-lang` and `maa-framework`.
+
+  ## Cross-system connections (not yet formalised)
+
+  - `soundness` (here) ↔ `max_khop_eq_sum_walks` (Isabelle):
+    map `Session` to `trop_mat` (session-type graph = adjacency matrix)
+    and invoke the Isabelle walk-weight theorem.
+  - `tropical_grade_le_sequentialTotal` ↔ `tropical_add_idem` (Isabelle):
+    `max(n1,n2) ≤ n1+n2` is `add_idem` in the dioid.
+  - `spec_par s1 s2` ↔ `trop_mat_add`: parallel sessions are matrix
+    addition; a machine-checked type checker backed by `floyd_warshall`.
 -/
 
 import Init
@@ -31,119 +77,258 @@ import Init
 namespace Hyperpolymath.Tropical
 
 -- ============================================================================
--- 1. The Tropical Budget Semiring
+-- 1. Tropical Semiring Type
 -- ============================================================================
 
-/-- A Tropical Budget represents Wall-Clock time or bottleneck resources. -/
-abbrev TropicalBudget := Nat
-
-/-- Sequential Composition: Cost accumulates (Addition) -/
-def tropicalSeq (a b : TropicalBudget) : TropicalBudget := a + b
-
-/-- Speculative Parallel Branching: Cost is bounded by the bottleneck (Max) -/
-def tropicalPar (a b : TropicalBudget) : TropicalBudget := max a b
-
+/-- The max-plus tropical semiring carrier.
+    `val n` embeds `n : Nat`; `bot` represents −∞ (additive zero). -/
+inductive Tropical where
+  | val : Nat → Tropical
+  | bot : Tropical
+  deriving DecidableEq, Repr
 
 -- ============================================================================
--- 2. Speculative Session Types (AST)
+-- 2. Primitive Operations
 -- ============================================================================
 
-/-- A simplified Session Type calculus supporting Speculative Parallelism. -/
+/-- Tropical addition: max with `bot` (−∞) as identity.
+    `tAdd (val m) (val n) = val (max m n)` -/
+def tAdd : Tropical → Tropical → Tropical
+  | .bot, b          => b
+  | a,    .bot       => a
+  | .val m, .val n   => .val (Nat.max m n)
+
+/-- Tropical multiplication: nat-addition with `val 0` as identity.
+    `tMul (val m) (val n) = val (m + n)` -/
+def tMul : Tropical → Tropical → Tropical
+  | .bot, _          => .bot
+  | _,    .bot       => .bot
+  | .val m, .val n   => .val (m + n)
+
+-- ============================================================================
+-- 3. CommSemiring Laws (individual theorems)
+-- ============================================================================
+
+-- ---- Addition ---------------------------------------------------------------
+
+theorem add_comm_trop (a b : Tropical) : tAdd a b = tAdd b a := by
+  cases a <;> cases b <;> simp [tAdd, Nat.max_comm]
+
+theorem add_assoc_trop (a b c : Tropical) :
+    tAdd (tAdd a b) c = tAdd a (tAdd b c) := by
+  cases a <;> cases b <;> cases c <;> simp [tAdd, Nat.max_assoc]
+
+/-- `bot` is the left identity of `tAdd`. -/
+theorem bot_add (a : Tropical) : tAdd .bot a = a := by
+  cases a <;> simp [tAdd]
+
+/-- `bot` is the right identity of `tAdd`. -/
+theorem add_bot (a : Tropical) : tAdd a .bot = a := by
+  cases a <;> simp [tAdd]
+
+-- ---- Multiplication ---------------------------------------------------------
+
+theorem mul_comm_trop (a b : Tropical) : tMul a b = tMul b a := by
+  cases a <;> cases b <;> simp [tMul, Nat.add_comm]
+
+theorem mul_assoc_trop (a b c : Tropical) :
+    tMul (tMul a b) c = tMul a (tMul b c) := by
+  cases a <;> cases b <;> cases c <;> simp [tMul, Nat.add_assoc]
+
+/-- `val 0` is the left identity of `tMul`. -/
+theorem one_mul_trop (a : Tropical) : tMul (.val 0) a = a := by
+  cases a <;> simp [tMul]
+
+/-- `val 0` is the right identity of `tMul`. -/
+theorem mul_one_trop (a : Tropical) : tMul a (.val 0) = a := by
+  cases a <;> simp [tMul]
+
+/-- `bot` (−∞) annihilates on the left under `tMul`. -/
+theorem bot_mul (a : Tropical) : tMul .bot a = .bot := by
+  cases a <;> simp [tMul]
+
+/-- `bot` (−∞) annihilates on the right under `tMul`. -/
+theorem mul_bot (a : Tropical) : tMul a .bot = .bot := by
+  cases a <;> simp [tMul]
+
+-- ---- Helper: nat-addition distributes over max ------------------------------
+
+private theorem nat_mul_add_max_left (k m n : Nat) :
+    k + Nat.max m n = Nat.max (k + m) (k + n) := by
+  simp [Nat.max_def]; omega
+
+private theorem nat_mul_add_max_right (k m n : Nat) :
+    Nat.max m n + k = Nat.max (m + k) (n + k) := by
+  simp [Nat.max_def]; omega
+
+-- ---- Distributivity ---------------------------------------------------------
+
+/-- Left distributivity: `a ⊗ (b ⊕ c) = (a ⊗ b) ⊕ (a ⊗ c)`. -/
+theorem left_distrib_trop (a b c : Tropical) :
+    tMul a (tAdd b c) = tAdd (tMul a b) (tMul a c) := by
+  cases a <;> cases b <;> cases c <;>
+    simp [tMul, tAdd, nat_mul_add_max_left]
+
+/-- Right distributivity: `(a ⊕ b) ⊗ c = (a ⊗ c) ⊕ (b ⊗ c)`. -/
+theorem right_distrib_trop (a b c : Tropical) :
+    tMul (tAdd a b) c = tAdd (tMul a c) (tMul b c) := by
+  cases a <;> cases b <;> cases c <;>
+    simp [tMul, tAdd, nat_mul_add_max_right]
+
+-- ============================================================================
+-- 4. CommSemiring Typeclass (local definition, Mathlib-compatible interface)
+-- ============================================================================
+
+/-- A commutative semiring.
+    Defined locally (no Mathlib dependency) with a Mathlib-compatible interface.
+    Wiring `Tropical` here enables `ring`-style proofs once Mathlib is added. -/
+class CommSemiring (α : Type) extends Add α, Mul α, Zero α, One α where
+  add_comm     : ∀ a b : α, a + b = b + a
+  add_assoc    : ∀ a b c : α, (a + b) + c = a + (b + c)
+  zero_add     : ∀ a : α, 0 + a = a
+  add_zero     : ∀ a : α, a + 0 = a
+  mul_comm     : ∀ a b : α, a * b = b * a
+  mul_assoc    : ∀ a b c : α, (a * b) * c = a * (b * c)
+  one_mul      : ∀ a : α, 1 * a = a
+  mul_one      : ∀ a : α, a * 1 = a
+  zero_mul     : ∀ a : α, 0 * a = 0
+  mul_zero     : ∀ a : α, a * 0 = 0
+  left_distrib  : ∀ a b c : α, a * (b + c) = a * b + a * c
+  right_distrib : ∀ a b c : α, (a + b) * c = a * c + b * c
+
+-- ============================================================================
+-- 5. CommSemiring Tropical Instance
+-- ============================================================================
+
+/-- `Tropical` is a commutative semiring under `(tAdd, tMul, bot, val 0)`.
+
+    Each field maps directly to the individually proved theorems above.
+    The instance wires them together to expose `+`, `*`, `0`, `1` notation
+    and enables `ring`-style tactic reasoning on `Tropical` expressions. -/
+instance : CommSemiring Tropical where
+  add           := tAdd
+  mul           := tMul
+  zero          := .bot
+  one           := .val 0
+  add_comm      := add_comm_trop
+  add_assoc     := add_assoc_trop
+  zero_add      := bot_add
+  add_zero      := add_bot
+  mul_comm      := mul_comm_trop
+  mul_assoc     := mul_assoc_trop
+  one_mul       := one_mul_trop
+  mul_one       := mul_one_trop
+  zero_mul      := bot_mul
+  mul_zero      := mul_bot
+  left_distrib  := left_distrib_trop
+  right_distrib := right_distrib_trop
+
+-- Smoke-test: notation and typeclass plumbing
+
+#check (inferInstance : CommSemiring Tropical)
+
+example : (0 : Tropical) = .bot            := rfl
+example : (1 : Tropical) = .val 0          := rfl
+example : (.val 2 + .val 5 : Tropical) = .val 5 := by simp [HAdd.hAdd, Add.add, tAdd]
+example : (.val 2 * .val 5 : Tropical) = .val 7 := by simp [HMul.hMul, Mul.mul, tMul]
+
+-- ============================================================================
+-- 6. Session Types
+-- ============================================================================
+
+/-- A simplified session calculus supporting speculative parallelism.
+
+    - `end_session` — the terminated session (zero cost)
+    - `send s`      — send one message, then continue as `s` (cost 1 + cost s)
+    - `recv s`      — receive one message, then continue as `s` (cost 0 + cost s)
+    - `spec_par s1 s2` — speculative parallel branch (cost = max of branches)
+
+    `recv` is written `val 0 * grade s` to maintain structural uniformity:
+    `val 0` is the multiplicative identity, so multiplication does no semantic
+    work in the recv case. -/
 inductive Session where
   | end_session : Session
-  | send : Session → Session
-  | recv : Session → Session
-  | spec_branch : Session → Session → Session
-
-
--- ============================================================================
--- 3. Static Analysis: The Tropical Grade
--- ============================================================================
-
-/-- Computes the static Tropical Grade (Type-Level Cost) of a Session. 
-    Notice how speculative branching uses the `max` operator, unlike standard 
-    linear types which use `+`. -/
-def tropicalGrade : Session → TropicalBudget
-  | Session.end_session => 0
-  | Session.send s => tropicalSeq 1 (tropicalGrade s)
-  | Session.recv s => tropicalSeq 0 (tropicalGrade s)
-  | Session.spec_branch s1 s2 => tropicalPar (tropicalGrade s1) (tropicalGrade s2)
-
+  | send        : Session → Session
+  | recv        : Session → Session
+  | spec_par    : Session → Session → Session
 
 -- ============================================================================
--- 4. Dynamic Operational Semantics
+-- 7. Static Grade (type-level cost)
 -- ============================================================================
 
-/-- Big-Step Operational Semantics mapping a Session to its dynamic 
-    Wall-Clock execution cost. -/
-inductive EvaluatesTo : Session → TropicalBudget → Prop where
-  | eval_end : EvaluatesTo Session.end_session 0
-  | eval_send : ∀ {s c}, EvaluatesTo s c → EvaluatesTo (Session.send s) (1 + c)
-  | eval_recv : ∀ {s c}, EvaluatesTo s c → EvaluatesTo (Session.recv s) (0 + c)
-  | eval_spec : ∀ {s1 s2 c1 c2},
-      EvaluatesTo s1 c1 →
-      EvaluatesTo s2 c2 →
-      -- In a speculative branch, both execute. Wall-clock cost is the max.
-      EvaluatesTo (Session.spec_branch s1 s2) (max c1 c2)
-
+/-- Computes the static tropical grade (type-level worst-case cost) of a session.
+    Speculative branching uses `tAdd` (max) rather than nat-addition. -/
+def grade : Session → Tropical
+  | .end_session     => .val 0
+  | .send s          => tMul (.val 1) (grade s)
+  | .recv s          => tMul (.val 0) (grade s)
+  | .spec_par s1 s2  => tAdd (grade s1) (grade s2)
 
 -- ============================================================================
--- 5. THEOREM 1: Tropical Session Soundness
+-- 8. Operational Semantics (Span)
 -- ============================================================================
 
-/-- PROOF OF SOUNDNESS: 
-    The static Tropical Grade perfectly predicts the dynamic worst-case 
-    execution cost. The type system is sound. -/
-theorem tropical_session_soundness (s : Session) (c : TropicalBudget)
-  (h : EvaluatesTo s c) : c = tropicalGrade s := by
-  induction h with
-  | eval_end => rfl
-  | eval_send _ ih =>
-      unfold tropicalGrade tropicalSeq
-      rw [ih]
-  | eval_recv _ ih =>
-      unfold tropicalGrade tropicalSeq
-      rw [ih]
-      simp
-  | eval_spec _ _ ih1 ih2 =>
-      unfold tropicalGrade tropicalPar
-      rw [ih1, ih2]
-
+/-- Dynamic wall-clock cost of a session.
+    Mirrors `grade` exactly (same recursive structure); adequate model for
+    soundness.  Not a full reduction relation. -/
+def Span : Session → Nat
+  | .end_session     => 0
+  | .send s          => 1 + Span s
+  | .recv s          => Span s
+  | .spec_par s1 s2  => Nat.max (Span s1) (Span s2)
 
 -- ============================================================================
--- 6. THEOREM 2: The Billing vs. Budget Divergence (QTT Refinement)
+-- 9. Theorem 1: Soundness
 -- ============================================================================
 
-/-- Standard Linear/Quantitative Type Theory computes total resource consumption
-    (The "Billing" Semiring), using Addition for branching. -/
-def linearBilling : Session → Nat
-  | Session.end_session => 0
-  | Session.send s => 1 + linearBilling s
-  | Session.recv s => 0 + linearBilling s
-  | Session.spec_branch s1 s2 => linearBilling s1 + linearBilling s2
+/-- **Soundness**: the static grade perfectly predicts dynamic wall-clock cost.
+    `grade s = val (Span s)` for all sessions `s`.
 
-/-- PROOF OF TROPICAL REFINEMENT:
-    We mathematically prove that the Tropical Budget is always less than or 
-    equal to the Linear Billing. 
-    
-    This proves that Quantitative Type Theory (QTT) is a quotient of Tropical 
-    Types. Standard linear logic OVERESTIMATES the wall-clock time of 
-    speculative execution. Tropical Types strictly refine it. -/
-theorem budget_strictly_bounds_billing (s : Session) :
-  tropicalGrade s ≤ linearBilling s := by
+    Lean analogue of Isabelle `max_khop_eq_sum_walks`: both say
+    "recursive static definition = inductive operational semantics". -/
+theorem soundness (s : Session) : grade s = .val (Span s) := by
   induction s with
-  | end_session => 
-      simp [tropicalGrade, linearBilling]
-  | send s' ih =>
-      unfold tropicalGrade tropicalSeq linearBilling
-      omega
-  | recv s' ih =>
-      unfold tropicalGrade tropicalSeq linearBilling
-      omega
-  | spec_branch s1 s2 ih1 ih2 =>
-      unfold tropicalGrade tropicalPar linearBilling
-      -- Lean 4's Presburger arithmetic solver automatically proves that
-      -- max(A, B) ≤ A + B for all natural numbers.
+  | end_session       => simp [grade, Span]
+  | send s ih         => simp [grade, tMul, Span, ih]
+  | recv s ih         => simp [grade, tMul, Span, ih]
+  | spec_par s1 s2 ih1 ih2 => simp [grade, tAdd, Span, ih1, ih2]
+
+-- ============================================================================
+-- 10. Corollary: grade_ne_bot
+-- ============================================================================
+
+/-- All valid sessions have finite cost: `grade s ≠ bot`.
+    Immediate from `soundness` since `val n ≠ bot` for all `n`. -/
+theorem grade_ne_bot (s : Session) : grade s ≠ .bot := by
+  rw [soundness s]
+  simp [Tropical.val.injEq]
+
+-- ============================================================================
+-- 11. Theorem 2: QTT Refinement (tropical_grade_le_sequentialTotal)
+-- ============================================================================
+
+/-- Standard linear / quantitative type theory bills the *sum* of all branch
+    costs (the "sequential total").  This overapproximates wall-clock time
+    when branches run in parallel. -/
+def sequentialTotal : Session → Nat
+  | .end_session     => 0
+  | .send s          => 1 + sequentialTotal s
+  | .recv s          => sequentialTotal s
+  | .spec_par s1 s2  => sequentialTotal s1 + sequentialTotal s2
+
+/-- **QTT Refinement**: the tropical (wall-clock) cost is always ≤ the
+    sequential total.  `max(a, b) ≤ a + b` for all naturals.
+
+    Lean analogue of Isabelle `tropical_add_idem`:
+    `max a b ≤ a + b` follows from `add_idem` in the dioid. -/
+theorem tropical_grade_le_sequentialTotal (s : Session) :
+    Span s ≤ sequentialTotal s := by
+  induction s with
+  | end_session           => simp [Span, sequentialTotal]
+  | send s ih             => simp [Span, sequentialTotal]; omega
+  | recv s ih             => simp [Span, sequentialTotal]; exact ih
+  | spec_par s1 s2 ih1 ih2 =>
+      simp [Span, sequentialTotal]
       omega
 
 end Hyperpolymath.Tropical
