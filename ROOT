@@ -5,6 +5,8 @@ session Tropical_Semirings in "." = "HOL-Library" +
     Null Operation (CNO) framework for the absolute-zero resource model,
     and tropical determinants (minimum-cost perfect matching).
   \<close>
+  sessions
+    "HOL-Combinatorics"
   theories
     Tropical_v2
     Tropical_Matrices_Full

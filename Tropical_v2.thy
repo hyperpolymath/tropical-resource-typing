@@ -8,9 +8,9 @@ text \<open>
 
   This theory develops both tropical semiring variants used in the estate:
 
-  \<^item> @{text tropical}     — \<^bold>\<open>max-plus\<close> over @{typ "nat \<union> {-\<infinity>}"},
+  \<^item> @{text tropical}     — \<^bold>\<open>max-plus\<close> over \<open>nat \<union> {-\<infinity>}\<close>,
     used for longest-path / scheduling / session-type budget.
-  \<^item> @{text tropical_min}  — \<^bold>\<open>min-plus\<close> over @{typ "nat \<union> {+\<infinity>}"},
+  \<^item> @{text tropical_min}  — \<^bold>\<open>min-plus\<close> over \<open>nat \<union> {+\<infinity>}\<close>,
     used for shortest-path / WCET / Bellman-Ford.
 
   Both are instantiated into Isabelle's algebraic hierarchy
@@ -273,7 +273,7 @@ definition less_eq_tropical :: "tropical \<Rightarrow> tropical \<Rightarrow> bo
     | Fin m    \<Rightarrow> (case b of NegInf \<Rightarrow> False | Fin n \<Rightarrow> m \<le> n))"
 
 definition less_tropical :: "tropical \<Rightarrow> tropical \<Rightarrow> bool" where
-  "a < b \<equiv> a \<le> b \<and> \<not> b \<le> a"
+  "less_tropical a b = (less_eq_tropical a b \<and> \<not> less_eq_tropical b a)"
 
 instance
 proof
@@ -290,7 +290,7 @@ proof
     unfolding less_eq_tropical_def
     by (cases a; cases b) (simp_all add: le_antisym nat_le_linear)
   show "(a < b) = (a \<le> b \<and> \<not> b \<le> a)"
-    unfolding less_tropical_def by simp
+    unfolding less_tropical_def less_eq_tropical_def by simp
 qed
 
 end
@@ -768,7 +768,7 @@ definition less_eq_tropical_min :: "tropical_min \<Rightarrow> tropical_min \<Ri
     | Fin' n  \<Rightarrow> (case a of PosInf \<Rightarrow> False | Fin' m \<Rightarrow> m \<le> n))"
 
 definition less_tropical_min :: "tropical_min \<Rightarrow> tropical_min \<Rightarrow> bool" where
-  "a < b \<equiv> a \<le> b \<and> \<not> b \<le> a"
+  "less_tropical_min a b = (less_eq_tropical_min a b \<and> \<not> less_eq_tropical_min b a)"
 
 instance
 proof
@@ -785,7 +785,7 @@ proof
     unfolding less_eq_tropical_min_def
     by (cases a; cases b) (simp_all add: nat_le_linear)
   show "(a < b) = (a \<le> b \<and> \<not> b \<le> a)"
-    unfolding less_tropical_min_def by simp
+    unfolding less_tropical_min_def less_eq_tropical_min_def by simp
 qed
 
 end

@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+// Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath)
+
+= Tropical Resource Typing — Priority Actions
+:revdate: 2026-04-12
+
+This file tracks immediate high-priority items that are not safely closed yet.
+
+[cols="1,3,1,1"]
+|===
+| ID | Action | Priority | Status
+
+| TR-001
+| Repair Isabelle executable availability on this machine. Symlink
+  `/usr/local/bin/isabelle` → `/opt/Isabelle2025-1/bin/isabelle` fixed 2026-04-12.
+  `isabelle version` confirms `Isabelle2025-1`.
+| P0
+| DONE 2026-04-12
+
+| TR-001b
+| Fix text antiquotation errors in `Tropical_v2.thy` exposed by the working
+  Isabelle executable. Lines 11/13 used `@{typ "nat \<union> {-∞}"}` (not valid HOL
+  type syntax) — changed to plain `\<open>nat \<union> {-∞}\<close>` text blocks.
+  Build re-run in progress 2026-04-12.
+| P0
+| IN PROGRESS 2026-04-12
+
+| TR-002
+| After TR-001, run `isabelle build -D . Tropical_Semirings` and capture
+  output in `docs/AFP-SUBMISSION-READY.adoc` with pass/fail note.
+| P0
+| IN PROGRESS (build running 2026-04-12)
+
+| TR-003
+| Submit AFP web form at `https://devel.isa-afp.org/submission.html` using
+  existing project metadata after TR-002 confirms clean build.
+| P1
+| JONATHAN (manual web submission)
+
+| TR-004
+| Verify Lean side remains clean after any theory edits:
+  `TropicalSessionTypes.lean` has `instance : CommSemiring Tropical` and no `sorry`.
+| P2
+| VERIFIED 2026-04-12
+|===
+
