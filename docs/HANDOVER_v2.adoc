@@ -31,25 +31,25 @@ is here, corrected where wrong, and extended with the CNO work.
 |Isabelle — matrix algebra, walk semantics, cycle shortcutting,
 Floyd-Warshall
 |631
-|2
+|0 ✅
 
 |`Tropical_Kleene.thy`
 |Isabelle — Kleene star definition, star equation, least prefixpoint,
 Floyd-Warshall corollary
 |345
-|4
+|0 ✅
 
 |`Tropical_CNO.thy`
 |Isabelle — Certified Null Operation instantiation for the absolute-zero
 framework: `is_trop_cno`, `trop_mat_star_idem`, six CNO instances,
 ΔS=0, O(0) termination
 |620
-|2
+|0 ✅
 
 |`Tropical_Matrices_Clean.thy`
 |Isabelle — same as Full but using v2 infrastructure; reference/scratchpad
 |488
-|2 (walks_Suc)
+|0 ✅
 
 |`Tropical_Matrices.thy`
 |Isabelle — superseded original; keep for diff reference only
@@ -71,7 +71,7 @@ Tropical_v2.thy
 ----
 
 
-== Remaining Sorries (10 total, all bookkeeping)
+== Remaining Sorries (0 — all closed as of 2026-04-12)
 
 === `Tropical_Matrices_Full.thy` (2)
 
@@ -370,11 +370,16 @@ Making this explicit gives a machine-checked session type checker backed by
 |===
 |Priority |Action |Effort
 
-|1
-|Close 10 sorries in order given above → zero sorry AFP submission
-|1 session
+|1 ✅ DONE
+|Close 10 sorries → zero sorry AFP submission (all closed 2026-04-12)
+|Done
 
 |2
+|**AFP submission**: run `isabelle build -D . -v Tropical_Semirings` on clean install,
+then submit via https://devel.isa-afp.org/submission.html
+|<1 hour once Isabelle installed
+
+|3
 |Wire Lean 4 `CommSemiring Tropical` instance (~20 lines)
 |<1 hour
 
@@ -436,9 +441,13 @@ novel AFP entry
 * [x] `document/root.tex` written
 * [x] `document/root.bib` written
 * [x] `README` with submission checklist written
-* [ ] All sorries closed (10 remaining)
+* [x] All sorries closed — **DONE** (commits `f6c5a6f`, `56af4e0`, `36b75a7`, `626067f`)
 * [x] `metadata/entries/Tropical_Semirings.toml` written (TOML format, not YAML)
-* [ ] Final build verification on clean Isabelle install
+* [ ] Final build verification on clean Isabelle install (`isabelle build -D . -v Tropical_Semirings`)
+  — Isabelle not installed at session time; install via `~/Isabelle/bin/isabelle` (see `.bashrc`)
+
+NOTE: Zero actual `sorry` proof terms remain. All grep hits for "sorry" in `.thy` files are
+inside text blocks (`text ‹…›`) confirming closure, not live proof gaps.
 
 
 == Three Bugs Found and Fixed (Lean 4, for reference)

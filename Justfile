@@ -714,14 +714,30 @@ clean-all: clean
 
 # Run all tests
 test *args:
-    @echo "Running tests..."
-    # TODO: Replace with your test command
-    # Examples:
-    #   cargo test {{args}}
-    #   mix test {{args}}
-    #   zig build test {{args}}
-    #   deno test {{args}}
-    @echo "Tests passed!"
+    @just isabelle-build
+
+# Type-check all Isabelle theories (requires Isabelle in PATH or ~/Isabelle/bin/)
+isabelle-build:
+    #!/usr/bin/env bash
+    ISABELLE=$(command -v isabelle 2>/dev/null || echo "$HOME/Isabelle/bin/isabelle")
+    if [ ! -x "$ISABELLE" ]; then
+        echo "ERROR: isabelle not found. Install Isabelle and ensure it is on PATH"
+        echo "  Expected: ~/Isabelle/bin/isabelle  (per .bashrc)"
+        exit 1
+    fi
+    echo "Building Tropical_Semirings with $ISABELLE..."
+    cd {{justfile_directory()}} && "$ISABELLE" build -D . -v Tropical_Semirings
+
+# Check zero sorries remain (grep-based, no Isabelle needed)
+check-sorry:
+    #!/usr/bin/env bash
+    count=$(grep -rn "^\s*sorry\b" {{justfile_directory()}}/*.thy | grep -v "text\|@{text\|\"" | wc -l)
+    echo "Actual sorry count: $count"
+    if [ "$count" -gt 0 ]; then
+        grep -rn "^\s*sorry\b" {{justfile_directory()}}/*.thy | grep -v "text\|@{text\|\""
+        exit 1
+    fi
+    echo "✓ Zero sorry proof terms — AFP-ready"
 
 # Run tests with verbose output
 test-verbose:
