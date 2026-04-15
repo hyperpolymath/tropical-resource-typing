@@ -1,0 +1,5 @@
+= tropical-resource-typing
+:toc: preamble
+:icons: font
+
+
