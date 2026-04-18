@@ -28,7 +28,7 @@ milestones = [
 ]
 
 [crg]
-grade = "C"
+grade = "D"
 achieved = "2026-04-04"
 evidence = [
   "unit: tests/validate.test.ts — 3 file existence checks",
