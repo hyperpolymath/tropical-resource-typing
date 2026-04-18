@@ -272,16 +272,19 @@ next
         = trop_mat_mul n (trop_mat_pow n A (p + q)) A i j"
     by simp
   also have "\<dots> = trop_mat_mul n (trop_mat_mul n (trop_mat_pow n A p) (trop_mat_pow n A q)) A i j"
-  proof (unfold trop_mat_mul_def, rule sum.cong, simp)
-    fix k assume "k \<in> {..<n}"
-    hence hk: "k < n" by simp
-    with Suc.prems(1)
-    have "trop_mat_pow n A (p + q) i k =
-          trop_mat_mul n (trop_mat_pow n A p) (trop_mat_pow n A q) i k"
-      using Suc.IH by blast
-    thus "trop_mat_pow n A (p + q) i k * A k j =
-          trop_mat_mul n (trop_mat_pow n A p) (trop_mat_pow n A q) i k * A k j"
-      by simp
+  proof (unfold trop_mat_mul_def)
+    show "(\<Sum>k\<in>{..<n}. trop_mat_pow n A (p + q) i k * A k j)
+        = (\<Sum>k\<in>{..<n}. trop_mat_mul n (trop_mat_pow n A p) (trop_mat_pow n A q) i k * A k j)"
+    proof (rule sum.cong[OF refl])
+      fix k assume "k \<in> {..<n}"
+      hence hk: "k < n" by simp
+      have "trop_mat_pow n A (p + q) i k =
+            trop_mat_mul n (trop_mat_pow n A p) (trop_mat_pow n A q) i k"
+        using Suc.IH[OF Suc.prems(1) hk] .
+      thus "trop_mat_pow n A (p + q) i k * A k j =
+            trop_mat_mul n (trop_mat_pow n A p) (trop_mat_pow n A q) i k * A k j"
+        by simp
+    qed
   qed
   also have "\<dots> = trop_mat_mul n (trop_mat_pow n A p) (trop_mat_mul n (trop_mat_pow n A q) A) i j"
     using Suc.prems by (simp add: trop_mat_mul_assoc)
@@ -432,22 +435,17 @@ proof (rule set_eqI)
     have hbl_hd: "hd (butlast w) = i"
       using hlen hhd by (cases w; cases "tl w") auto
     have hbl_set: "set (butlast w) \<subseteq> {..<n}"
-      using hset by (rule subset_trans[OF set_butlast])
+      using hset by (auto dest: in_set_butlastD)
     have hm_lt: "?m < n"
       by (metis last_in_set hbne hbl_set lessThan_iff subsetD)
     have hj_lt: "j < n"
       by (metis last_in_set hne hset lessThan_iff hlast subsetD)
     have hbl_last: "last (butlast w) = ?m" by simp
     have hbl_mem: "butlast w \<in> {w. length w = Suc k \<and> hd w = i \<and> last w = ?m \<and> set w \<subseteq> {..<n}}"
-      by (simp add: hbl_len hbl_hd hbl_set)
+      using hbl_len hbl_hd hbl_set by simp
     show "w \<in> (\<Union> m \<in> {..<n}. (\<lambda>w. w @ [j]) ` {w. length w = Suc k \<and> hd w = i \<and> last w = m \<and> set w \<subseteq> {..<n}}
                \<inter> {w. last (butlast w) = m \<and> j < n})"
-      apply (rule UN_I[of _ ?m])
-        apply (simp add: hm_lt)
-       apply (rule IntI)
-        apply (rule imageI[OF hbl_mem])
-       apply (simp add: hw_eq hj_lt)
-      done
+      using hm_lt hbl_mem hw_eq hj_lt by blast
   next
     assume hw: "w \<in> (\<Union> m \<in> {..<n}. (\<lambda>w. w @ [j]) ` {w. length w = Suc k \<and> hd w = i \<and> last w = m \<and> set w \<subseteq> {..<n}}
                     \<inter> {w. last (butlast w) = m \<and> j < n})"
@@ -495,7 +493,7 @@ proof (rule set_eqI)
     have hbl_hd: "hd (butlast w) = i"
       using hlen hhd by (cases w; cases "tl w") auto
     have hbl_set: "set (butlast w) \<subseteq> {..<n}"
-      using hset by (rule subset_trans[OF set_butlast])
+      using hset by (auto dest: in_set_butlastD)
     have hm_lt: "?m < n"
       by (metis last_in_set hbne hbl_set lessThan_iff subsetD)
     have hj_lt: "j < n"
@@ -512,7 +510,11 @@ proof (rule set_eqI)
     from hv have hv_len: "length v = Suc k" and hv_hd: "hd v = i"
                 and hv_set: "set v \<subseteq> {..<n}" by simp_all
     show "w \<in> {w. length w = Suc (Suc k) \<and> hd w = i \<and> last w = j \<and> set w \<subseteq> {..<n}}"
-      using hv_len hv_hd hv_set hj hw_eq by (simp add: hd_append)
+    proof -
+      have hv_ne: "v \<noteq> []" using hv_len by auto
+      show ?thesis using hv_len hv_hd hv_set hj hw_eq hv_ne
+        by (auto simp: hd_append)
+    qed
   qed
 qed
 
@@ -785,9 +787,9 @@ proof -
   let ?p = "Suc p0"
   let ?q = "q"
   have hp_lt: "?p < length w" using hp0_bound by simp
-  have hp_val: "w ! ?p = v" by (simp add: hp0_val nth_tl)
+  have hp_val: "w ! ?p = v" using hp0_val nth_tl[OF hp0_bound] by simp
   have hq_lt: "?q < length w - 1" using hq_bound by simp
-  have hq_val': "w ! ?q = v" by (simp add: hq_val nth_butlast)
+  have hq_val': "w ! ?q = v" using hq_val nth_butlast[OF hq_bound] by simp
   (* Build two cases: either p < q (good) or q ≤ p; in either case get p' < q' *)
   obtain p' q' where hp': "p' < length w" "w ! p' = v" "0 < p'"
                  and hq': "q' < length w - 1" "w ! q' = v"
@@ -1007,20 +1009,30 @@ text \<open>
 theorem trop_mat_pow_eq_sum_walks:
   assumes "i < n" "j < n"
   shows "trop_mat_pow n A k i j = trop_walks_sum A (walks n k i j)"
+  using assms
 proof (induction k arbitrary: i j)
   case 0
   show ?case
   proof (cases "i = j")
     case True
-    have "j < n" using assms(2) by simp
-    hence "walks n 0 j j = {[j]}" by (rule walks_0)
-    thus ?thesis using True
-      by (simp add: trop_walks_sum_def trop_mat_id_def one_tropical_def)
+    have "j < n" using "0.prems"(2) .
+    hence walks_eq: "walks n 0 j j = {[j]}" by (rule walks_0)
+    have lhs: "trop_mat_pow n A 0 i j = Fin 0"
+      using True by (simp add: trop_mat_id_def)
+    have rhs: "trop_walks_sum A (walks n 0 i j) = Fin 0"
+    proof -
+      have "trop_walks_sum A (walks n 0 i j) = path_weight A [j]"
+        using True walks_eq by (simp add: trop_walks_sum_def)
+      also have "\<dots> = 1" by simp
+      also have "\<dots> = Fin 0" by (simp add: one_tropical_def)
+      finally show ?thesis .
+    qed
+    show ?thesis using lhs rhs by simp
   next
     case False
     then show ?thesis
       by (simp add: trop_walks_sum_def walks_0_empty_if_neq
-                    trop_mat_id_def zero_tropical_def assms)
+                    trop_mat_id_def zero_tropical_def "0.prems")
   qed
 next
   case (Suc k)
@@ -1097,20 +1109,30 @@ text \<open>
 theorem tropm_mat_pow_eq_sum_walks:
   assumes "i < n" "j < n"
   shows "tropm_mat_pow n A k i j = tropm_walks_sum A (walks n k i j)"
+  using assms
 proof (induction k arbitrary: i j)
   case 0
   show ?case
   proof (cases "i = j")
     case True
-    have "j < n" using assms(2) by simp
-    hence "walks n 0 j j = {[j]}" by (rule walks_0)
-    thus ?thesis using True
-      by (simp add: tropm_walks_sum_def tropm_mat_id_def one_tropical_min_def)
+    have "j < n" using "0.prems"(2) .
+    hence walks_eq: "walks n 0 j j = {[j]}" by (rule walks_0)
+    have lhs: "tropm_mat_pow n A 0 i j = Fin' 0"
+      using True by (simp add: tropm_mat_id_def)
+    have rhs: "tropm_walks_sum A (walks n 0 i j) = Fin' 0"
+    proof -
+      have "tropm_walks_sum A (walks n 0 i j) = path_weightm A [j]"
+        using True walks_eq by (simp add: tropm_walks_sum_def)
+      also have "\<dots> = 1" by simp
+      also have "\<dots> = Fin' 0" by (simp add: one_tropical_min_def)
+      finally show ?thesis .
+    qed
+    show ?thesis using lhs rhs by simp
   next
     case False
     then show ?thesis
       by (simp add: tropm_walks_sum_def walks_0_empty_if_neq
-                    tropm_mat_id_def zero_tropical_min_def assms)
+                    tropm_mat_id_def zero_tropical_min_def "0.prems")
   qed
 next
   case (Suc k)
