@@ -430,7 +430,7 @@ proof (rule set_eqI)
     have hbl_len: "length (butlast w) = Suc k"
       using hlen by simp
     have hbl_hd: "hd (butlast w) = i"
-      by (metis hd_butlast hlen hhd nat.simps(3))
+      using hlen hhd by (cases w; cases "tl w") auto
     have hbl_set: "set (butlast w) \<subseteq> {..<n}"
       using hset by (rule subset_trans[OF set_butlast])
     have hm_lt: "?m < n"
@@ -493,7 +493,7 @@ proof (rule set_eqI)
       by (metis append_butlast_last_id hlast hne)
     have hbl_len: "length (butlast w) = Suc k" using hlen by simp
     have hbl_hd: "hd (butlast w) = i"
-      by (metis hd_butlast hlen hhd nat.simps(3))
+      using hlen hhd by (cases w; cases "tl w") auto
     have hbl_set: "set (butlast w) \<subseteq> {..<n}"
       using hset by (rule subset_trans[OF set_butlast])
     have hm_lt: "?m < n"
@@ -1012,9 +1012,10 @@ proof (induction k arbitrary: i j)
   show ?case
   proof (cases "i = j")
     case True
-    then show ?thesis
-      by (simp add: trop_walks_sum_def walks_0 assms(1)
-                    trop_mat_id_def one_tropical_def)
+    have "j < n" using assms(2) by simp
+    hence "walks n 0 j j = {[j]}" by (rule walks_0)
+    thus ?thesis using True
+      by (simp add: trop_walks_sum_def trop_mat_id_def one_tropical_def)
   next
     case False
     then show ?thesis
@@ -1101,9 +1102,10 @@ proof (induction k arbitrary: i j)
   show ?case
   proof (cases "i = j")
     case True
-    then show ?thesis
-      by (simp add: tropm_walks_sum_def walks_0 assms(1)
-                    tropm_mat_id_def one_tropical_min_def)
+    have "j < n" using assms(2) by simp
+    hence "walks n 0 j j = {[j]}" by (rule walks_0)
+    thus ?thesis using True
+      by (simp add: tropm_walks_sum_def tropm_mat_id_def one_tropical_min_def)
   next
     case False
     then show ?thesis
