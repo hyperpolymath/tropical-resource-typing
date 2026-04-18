@@ -181,8 +181,10 @@ proof -
     by (simp add: trop_mat_mul_def)
   also have "\<dots> = (\<Sum> k \<in> {..<n}. if k = j then A i k * Fin 0 else A i k * NegInf)"
     by (rule sum.cong) (simp_all add: trop_mat_id_def)
+  also have "\<dots> = (\<Sum> k \<in> {..<n}. if k = j then A i k * Fin 0 else (0 :: tropical))"
+    by (rule sum.cong) (simp_all add: zero_tropical_def[symmetric])
   also have "\<dots> = A i j * Fin 0"
-    by (simp add: sum.delta[OF finite_lessThan] hj)
+    using hj by (simp add: sum.delta[OF finite_lessThan])
   also have "\<dots> = A i j"
     by (simp add: times_tropical_def)
   finally show ?thesis .
@@ -198,8 +200,10 @@ proof -
     by (simp add: trop_mat_mul_def)
   also have "\<dots> = (\<Sum> k \<in> {..<n}. if k = i then Fin 0 * A k j else NegInf * A k j)"
     by (rule sum.cong) (simp_all add: trop_mat_id_def)
+  also have "\<dots> = (\<Sum> k \<in> {..<n}. if k = i then Fin 0 * A k j else (0 :: tropical))"
+    by (rule sum.cong) (simp_all add: zero_tropical_def[symmetric])
   also have "\<dots> = Fin 0 * A i j"
-    by (simp add: sum.delta[OF finite_lessThan] hi)
+    using hi by (simp add: sum.delta[OF finite_lessThan])
   also have "\<dots> = A i j"
     by (simp add: times_tropical_def)
   finally show ?thesis .
@@ -249,7 +253,7 @@ lemma trop_mat_pow_zero [simp]:
 
 lemma trop_mat_pow_one:
   "i < n \<Longrightarrow> j < n \<Longrightarrow> trop_mat_pow n A 1 i j = A i j"
-  by (simp add: trop_mat_mul_id_right)
+  by (simp add: trop_mat_mul_id_left)
 
 lemma trop_mat_pow_Suc_right:
   "trop_mat_pow n A (Suc k) = trop_mat_mul n (trop_mat_pow n A k) A"
@@ -370,15 +374,17 @@ subsection \<open>13  Finiteness of Walk Sets\<close>
 lemma finite_walks:
   "finite (walks n k i j)"
 proof -
-  have "walks n k i j \<subseteq> {w . length w = Suc k \<and> set w \<subseteq> {..<n}}"
+  have sub: "walks n k i j \<subseteq> {w . length w = Suc k \<and> set w \<subseteq> {..<n}}"
     unfolding walks_def by blast
-  moreover have "finite {w :: nat list . length w = Suc k \<and> set w \<subseteq> {..<n}}"
-  proof -
-    have "finite ({..<n} :: nat set)" by simp
-    thus ?thesis
-      by (rule finite_lists_length_eq[OF _ refl])
-  qed
-  ultimately show ?thesis by (rule finite_subset)
+  have set_eq: "{w :: nat list . length w = Suc k \<and> set w \<subseteq> {..<n}}
+              = {w :: nat list . set w \<subseteq> {..<n} \<and> length w = Suc k}"
+    by blast
+  have "finite ({..<n} :: nat set)" by simp
+  hence "finite {w :: nat list . set w \<subseteq> {..<n} \<and> length w = Suc k}"
+    by (rule finite_lists_length_eq)
+  with set_eq have "finite {w :: nat list . length w = Suc k \<and> set w \<subseteq> {..<n}}"
+    by simp
+  thus ?thesis using sub by (rule finite_subset[rotated])
 qed
 
 lemma finite_walks_le:
@@ -412,7 +418,12 @@ proof (rule set_eqI)
     then have hlen: "length w = Suc (Suc k)" and hhd: "hd w = i"
               and hlast: "last w = j" and hset: "set w \<subseteq> {..<n}" by simp_all
     have hne: "w \<noteq> []" using hlen by auto
-    have hbne: "butlast w \<noteq> []" using hlen by (simp add: butlast_eq_Nil_conv)
+    have hbne: "butlast w \<noteq> []"
+    proof
+      assume "butlast w = []"
+      hence "length (butlast w) = 0" by simp
+      with length_butlast[of w] hlen show False by simp
+    qed
     let ?m = "last (butlast w)"
     have hw_eq: "w = butlast w @ [j]"
       by (metis append_butlast_last_id hlast hne)
@@ -471,7 +482,12 @@ proof (rule set_eqI)
     then have hlen: "length w = Suc (Suc k)" and hhd: "hd w = i"
               and hlast: "last w = j" and hset: "set w \<subseteq> {..<n}" by simp_all
     have hne: "w \<noteq> []" using hlen by auto
-    have hbne: "butlast w \<noteq> []" using hlen by (simp add: butlast_eq_Nil_conv)
+    have hbne: "butlast w \<noteq> []"
+    proof
+      assume "butlast w = []"
+      hence "length (butlast w) = 0" by simp
+      with length_butlast[of w] hlen show False by simp
+    qed
     let ?m = "last (butlast w)"
     have hw_eq: "w = butlast w @ [j]"
       by (metis append_butlast_last_id hlast hne)
@@ -560,16 +576,16 @@ next
   show ?case
   proof (cases rest)
     case Nil
-    then show ?thesis
-      by (simp add: Cons.prems)
+    have "path_weight A (u # w2) = A u (hd w2) * path_weight A w2"
+      using Cons.prems(2) by (cases w2) auto
+    then show ?thesis using Nil by simp
   next
     case (Cons v t)
     have "path_weight A ((u # v # t) @ w2)
           = A u v * path_weight A ((v # t) @ w2)"
       by simp
     also have "\<dots> = A u v * (path_weight A ((v # t) @ [hd w2]) * path_weight A w2)"
-      using Cons_cons.IH Cons.prems(2)
-      by (simp add: local.Cons)
+      using Cons.IH Cons.prems(2) local.Cons by simp
     also have "\<dots> = path_weight A ((u # v # t) @ [hd w2]) * path_weight A w2"
       by (simp add: mult.assoc local.Cons)
     finally show ?thesis
@@ -684,7 +700,7 @@ lemma trop_walks_sum_mono_subset:
   assumes "finite T" "S \<subseteq> T"
   shows "trop_walks_sum A S \<le> trop_walks_sum A T"
 proof -
-  have fS: "finite S" using assms(1,2) by (rule finite_subset)
+  have fS: "finite S" by (rule finite_subset[OF assms(2) assms(1)])
   show ?thesis
   proof (induction S rule: finite_induct[OF fS])
     case empty

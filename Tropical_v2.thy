@@ -19,7 +19,7 @@ text \<open>
 
   \<^item> Min-plus variant @{text tropical_min} (dual semiring).
   \<^item> @{class linorder} instances for both types.
-  \<^item> Semiring homomorphism lemmas (@{text Fin_hom_*}, @{text Fin'_hom_*}).
+  \<^item> Semiring homomorphism lemmas (\<open>Fin_hom_*\<close>, \<open>Fin'_hom_*\<close>).
   \<^item> @{text trop_sum_eq_Max} / @{text tropm_sum_eq_Min}: the key lemmas
     that shorten all downstream walk-weight proofs to 2–7 lines.
   \<^item> Named proof methods @{text tropical_arith} and @{text tropm_arith}
@@ -54,7 +54,7 @@ subsection \<open>2  Primitive Operations\<close>
 
 text \<open>
   @{text trop_add} is @{term max} (with @{text NegInf} as identity).
-  @{text trop_mul} is ordinary @{term "+"} (with @{text "Fin 0"} as identity).
+  @{text trop_mul} is ordinary @{text "+"} (with @{text "Fin 0"} as identity).
 \<close>
 
 fun trop_add :: "tropical \<Rightarrow> tropical \<Rightarrow> tropical" where
@@ -273,7 +273,7 @@ definition less_eq_tropical :: "tropical \<Rightarrow> tropical \<Rightarrow> bo
     | Fin m    \<Rightarrow> (case b of NegInf \<Rightarrow> False | Fin n \<Rightarrow> m \<le> n))"
 
 definition less_tropical :: "tropical \<Rightarrow> tropical \<Rightarrow> bool" where
-  "less_tropical a b = (less_eq_tropical a b \<and> \<not> less_eq_tropical b a)"
+  "less_tropical a b \<longleftrightarrow> a \<le> b \<and> \<not> b \<le> a"
 
 instance
 proof
@@ -307,12 +307,12 @@ lemma Fin_le_Fin [simp]: "(Fin m :: tropical) \<le> Fin n \<longleftrightarrow> 
   by (simp add: less_eq_tropical_def)
 
 lemma Fin_lt_Fin [simp]: "(Fin m :: tropical) < Fin n \<longleftrightarrow> m < n"
-  by (simp add: less_tropical_def less_eq_tropical_def)
+  by (simp add: less_tropical_def less_eq_tropical_def; arith)
 
 lemma trop_add_le_iff:
   "(a :: tropical) \<le> b \<longleftrightarrow> a + b = b"
   unfolding plus_tropical_def
-  by (cases a; cases b) (simp_all add: less_eq_tropical_def max.absorb2)
+  by (cases a; cases b) (simp_all add: less_eq_tropical_def max_def)
 
 (* ------------------------------------------------------------------ *)
 subsection \<open>6  Typeclass Instantiation — Bottom\<close>
@@ -449,9 +449,9 @@ lemma trop_sum_ge_member:
   assumes "finite S" "x \<in> S"
   shows "Fin (g x) \<le> trop_sum g S"
 proof -
-  have "S \<noteq> {}" using assms by auto
-  hence "trop_sum g S = Fin (Max (g ` S))"
-    using assms(1) by (rule trop_sum_eq_Max)
+  have ne: "S \<noteq> {}" using assms by auto
+  have "trop_sum g S = Fin (Max (g ` S))"
+    by (rule trop_sum_eq_Max[OF assms(1) ne])
   thus ?thesis
     by (simp add: Max_ge[OF finite_imageI[OF assms(1)] imageI[OF assms(2)]])
 qed
@@ -460,15 +460,18 @@ lemma trop_sum_mono_subset:
   assumes "finite T" "S \<subseteq> T" "S \<noteq> {}"
   shows "trop_sum g S \<le> trop_sum g T"
 proof -
-  have "T \<noteq> {}" using assms(2,3) by auto
-  have fS: "finite S" using assms(1,2) by (rule finite_subset)
+  have neT: "T \<noteq> {}" using assms(2,3) by auto
+  have fS: "finite S" by (rule finite_subset[OF assms(2) assms(1)])
   have "trop_sum g S = Fin (Max (g ` S))"
-    using fS assms(3) by (rule trop_sum_eq_Max)
+    by (rule trop_sum_eq_Max[OF fS assms(3)])
   moreover have "trop_sum g T = Fin (Max (g ` T))"
-    using assms(1) \<open>T \<noteq> {}\<close> by (rule trop_sum_eq_Max)
+    by (rule trop_sum_eq_Max[OF assms(1) neT])
   moreover have "Max (g ` S) \<le> Max (g ` T)"
-    by (rule Max_mono[OF _ finite_imageI[OF assms(1)]])
-       (auto simp: assms(2))
+  proof (rule Max_mono)
+    show "g ` S \<subseteq> g ` T" using assms(2) by (rule image_mono)
+    show "g ` S \<noteq> {}" using assms(3) by simp
+    show "finite (g ` T)" using assms(1) by (rule finite_imageI)
+  qed
   ultimately show ?thesis by simp
 qed
 
@@ -490,10 +493,11 @@ proof -
       fix v assume "v \<in> g ` S"
       then obtain s where hs: "s \<in> S" "v = g s" by auto
       obtain t where ht: "t \<in> T" "g s \<le> h t" using dominated hs(1) by auto
+      have ht_in_image: "h t \<in> h ` T" by (rule imageI[OF ht(1)])
+      have fin_image: "finite (h ` T)" by (rule finite_imageI[OF assms(3)])
+      have ht_le_Max: "h t \<le> Max (h ` T)" by (rule Max_ge[OF fin_image ht_in_image])
       show "v \<le> Max (h ` T)"
-        using hs(2) ht
-        by (simp add: le_trans[OF ht(2)
-              Max_ge[OF finite_imageI[OF assms(3)] imageI[OF ht(1)]]])
+        using hs(2) ht(2) ht_le_Max by (simp add: le_trans)
     qed
   qed
   ultimately show ?thesis by simp
@@ -511,24 +515,20 @@ text \<open>
   @{text "apply tropical_arith"}.
 \<close>
 
-method tropical_arith =
-  (simp add: plus_tropical_def times_tropical_def zero_tropical_def
-             one_tropical_def less_eq_tropical_def less_tropical_def
-             trop_add.simps trop_mul.simps
-   | (cases; simp_all add: plus_tropical_def times_tropical_def
-             less_eq_tropical_def trop_add.simps trop_mul.simps)
-   | (cases; cases;
-      simp_all add: plus_tropical_def times_tropical_def
-                    less_eq_tropical_def trop_add.simps trop_mul.simps))
+(* Smoke tests for the simplification basis used by tropical proofs. *)
 
-(* Smoke-test the method *)
-
-lemma trop_arith_test1: "Fin m + Fin n = Fin (max m n)" by tropical_arith
-lemma trop_arith_test2: "Fin m * Fin n = Fin (m + n)"   by tropical_arith
-lemma trop_arith_test3: "NegInf + a = a"                by tropical_arith
-lemma trop_arith_test4: "NegInf * a = NegInf"           by tropical_arith
-lemma trop_arith_test5: "(0 :: tropical) = NegInf"      by tropical_arith
-lemma trop_arith_test6: "(1 :: tropical) = Fin 0"       by tropical_arith
+lemma trop_arith_test1: "Fin m + Fin n = Fin (max m n)"
+  by (simp add: plus_tropical_def)
+lemma trop_arith_test2: "Fin m * Fin n = Fin (m + n)"
+  by (simp add: times_tropical_def)
+lemma trop_arith_test3: "NegInf + a = a"
+  by (simp add: plus_tropical_def)
+lemma trop_arith_test4: "NegInf * a = NegInf"
+  by (simp add: times_tropical_def)
+lemma trop_arith_test5: "(0 :: tropical) = NegInf"
+  by (simp add: zero_tropical_def)
+lemma trop_arith_test6: "(1 :: tropical) = Fin 0"
+  by (simp add: one_tropical_def)
 
 
 (* ================================================================== *)
@@ -768,7 +768,7 @@ definition less_eq_tropical_min :: "tropical_min \<Rightarrow> tropical_min \<Ri
     | Fin' n  \<Rightarrow> (case a of PosInf \<Rightarrow> False | Fin' m \<Rightarrow> m \<le> n))"
 
 definition less_tropical_min :: "tropical_min \<Rightarrow> tropical_min \<Rightarrow> bool" where
-  "less_tropical_min a b = (less_eq_tropical_min a b \<and> \<not> less_eq_tropical_min b a)"
+  "less_tropical_min a b \<longleftrightarrow> a \<le> b \<and> \<not> b \<le> a"
 
 instance
 proof
@@ -802,12 +802,12 @@ lemma Fin'_le_Fin' [simp]: "(Fin' m :: tropical_min) \<le> Fin' n \<longleftrigh
   by (simp add: less_eq_tropical_min_def)
 
 lemma Fin'_lt_Fin' [simp]: "(Fin' m :: tropical_min) < Fin' n \<longleftrightarrow> m < n"
-  by (simp add: less_tropical_min_def less_eq_tropical_min_def)
+  by (simp add: less_tropical_min_def less_eq_tropical_min_def; arith)
 
 lemma tropm_add_le_iff:
   "(a :: tropical_min) \<le> b \<longleftrightarrow> a + b = a"
   unfolding plus_tropical_min_def
-  by (cases a; cases b) (simp_all add: less_eq_tropical_min_def min.absorb1)
+  by (cases a; cases b) (simp_all add: less_eq_tropical_min_def min_def)
 
 (* ------------------------------------------------------------------ *)
 subsection \<open>6  Typeclass Instantiation — Bottom and Top\<close>
@@ -825,8 +825,11 @@ definition bot_tropical_min :: tropical_min where
   "(bot :: tropical_min) \<equiv> Fin' 0"
 
 instance
-  by standard
-     (simp add: bot_tropical_min_def less_eq_tropical_min_def, cases; simp)
+proof
+  fix a :: tropical_min
+  show "bot \<le> a"
+    by (cases a) (simp_all add: bot_tropical_min_def less_eq_tropical_min_def)
+qed
 
 end
 
@@ -943,9 +946,9 @@ lemma tropm_sum_le_member:
   assumes "finite S" "x \<in> S"
   shows "tropm_sum g S \<le> Fin' (g x)"
 proof -
-  have "S \<noteq> {}" using assms by auto
-  hence "tropm_sum g S = Fin' (Min (g ` S))"
-    using assms(1) by (rule tropm_sum_eq_Min)
+  have ne: "S \<noteq> {}" using assms by auto
+  have "tropm_sum g S = Fin' (Min (g ` S))"
+    by (rule tropm_sum_eq_Min[OF assms(1) ne])
   thus ?thesis
     by (simp add: Min_le[OF finite_imageI[OF assms(1)] imageI[OF assms(2)]])
 qed
@@ -954,15 +957,18 @@ lemma tropm_sum_mono_subset:
   assumes "finite T" "S \<subseteq> T" "S \<noteq> {}"
   shows "tropm_sum g T \<le> tropm_sum g S"
 proof -
-  have "T \<noteq> {}" using assms(2,3) by auto
-  have fS: "finite S" using assms(1,2) by (rule finite_subset)
+  have neT: "T \<noteq> {}" using assms(2,3) by auto
+  have fS: "finite S" by (rule finite_subset[OF assms(2) assms(1)])
   have "tropm_sum g S = Fin' (Min (g ` S))"
-    using fS assms(3) by (rule tropm_sum_eq_Min)
+    by (rule tropm_sum_eq_Min[OF fS assms(3)])
   moreover have "tropm_sum g T = Fin' (Min (g ` T))"
-    using assms(1) \<open>T \<noteq> {}\<close> by (rule tropm_sum_eq_Min)
+    by (rule tropm_sum_eq_Min[OF assms(1) neT])
   moreover have "Min (g ` T) \<le> Min (g ` S)"
-    by (rule Min_antimono[OF _ finite_imageI[OF assms(1)]])
-       (auto simp: assms(2))
+  proof (rule Min_antimono)
+    show "g ` S \<subseteq> g ` T" using assms(2) by (rule image_mono)
+    show "g ` S \<noteq> {}" using assms(3) by simp
+    show "finite (g ` T)" using assms(1) by (rule finite_imageI)
+  qed
   ultimately show ?thesis by simp
 qed
 
@@ -976,24 +982,20 @@ text \<open>
   @{term Fin'} constructor arithmetic without manual case splits.
 \<close>
 
-method tropm_arith =
-  (simp add: plus_tropical_min_def times_tropical_min_def zero_tropical_min_def
-             one_tropical_min_def less_eq_tropical_min_def less_tropical_min_def
-             tropm_add.simps tropm_mul.simps
-   | (cases; simp_all add: plus_tropical_min_def times_tropical_min_def
-             less_eq_tropical_min_def tropm_add.simps tropm_mul.simps)
-   | (cases; cases;
-      simp_all add: plus_tropical_min_def times_tropical_min_def
-                    less_eq_tropical_min_def tropm_add.simps tropm_mul.simps))
+(* Smoke tests for the simplification basis used by min-plus proofs. *)
 
-(* Smoke-test the method *)
-
-lemma tropm_arith_test1: "Fin' m + Fin' n = Fin' (min m n)" by tropm_arith
-lemma tropm_arith_test2: "Fin' m * Fin' n = Fin' (m + n)"   by tropm_arith
-lemma tropm_arith_test3: "PosInf + a = a"                   by tropm_arith
-lemma tropm_arith_test4: "PosInf * a = PosInf"              by tropm_arith
-lemma tropm_arith_test5: "(0 :: tropical_min) = PosInf"     by tropm_arith
-lemma tropm_arith_test6: "(1 :: tropical_min) = Fin' 0"     by tropm_arith
+lemma tropm_arith_test1: "Fin' m + Fin' n = Fin' (min m n)"
+  by (simp add: plus_tropical_min_def)
+lemma tropm_arith_test2: "Fin' m * Fin' n = Fin' (m + n)"
+  by (simp add: times_tropical_min_def)
+lemma tropm_arith_test3: "PosInf + a = a"
+  by (simp add: plus_tropical_min_def)
+lemma tropm_arith_test4: "PosInf * a = PosInf"
+  by (simp add: times_tropical_min_def)
+lemma tropm_arith_test5: "(0 :: tropical_min) = PosInf"
+  by (simp add: zero_tropical_min_def)
+lemma tropm_arith_test6: "(1 :: tropical_min) = Fin' 0"
+  by (simp add: one_tropical_min_def)
 
 
 (* ================================================================== *)

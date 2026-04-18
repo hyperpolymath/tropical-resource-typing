@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= Tropical Resource Typing Assessment
+:revdate: 2026-04-18
+
+== Binary Conclusion
+
+*Not yet established as machine-checked end-to-end in the current repository state.*
+
+== Basis for Verdict
+
+The repository contains substantial formal content, but the end-to-end proof
+verification gate is currently red on this machine.
+
+=== 1. Core formal artifacts exist and are non-trivial
+
+Evidence:
+
+* Isabelle theories:
+  `Tropical.thy`, `Tropical_v2.thy`, `Tropical_Matrices_Full.thy`,
+  `Tropical_Kleene.thy`, `Tropical_CNO.thy`, `Tropical_Determinants.thy`
+* Lean theorem development: `TropicalSessionTypes.lean`
+  with named theorems such as `soundness`, `grade_ne_bot`,
+  `tropical_grade_le_sequentialTotal`
+* Lean source scan reports no `sorry` tokens.
+
+This is sufficient to say the project is more than prose-only.
+
+=== 2. Primary executable proof check currently fails
+
+Command run:
+
+[source,bash]
+----
+isabelle build -D . -v Tropical_Semirings
+----
+
+Result: *FAILED*.
+
+Observed failure includes:
+
+* document antiquotation parse error in `Tropical_v2.thy`
+* unresolved theory loading chain from `Tropical_v2`
+* additional definition/type error (`less_eq_tropical`) in `Tropical_v2.thy`
+
+Therefore the authoritative Isabelle session check is not green.
+
+=== 3. Repository-local test entrypoint is currently broken
+
+`just test` and `just check-sorry` cannot run because the `Justfile` fails to
+parse (`\(` invalid escape sequence at line 370), so the project's own task
+runner is not presently usable as a verification gate.
+
+=== 4. Lean toolchain is unavailable in this environment
+
+`lean` is not installed on this machine, so Lean claims cannot be independently
+rechecked here beyond source inspection.
+
+== Assessment Scope Note
+
+This verdict is about *current machine-check status in this repo state*,
+not about whether tropical resource typing is a valid research direction.
+The formal direction appears strong, but submission-grade verification requires:
+
+1. `isabelle build -D . -v Tropical_Semirings` passing.
+2. `Justfile` parseability restored so local gates are runnable.
+3. (Optional but recommended) Lean check wired into CI where toolchain is available.

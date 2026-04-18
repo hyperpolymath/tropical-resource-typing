@@ -335,7 +335,7 @@ text \<open>
 
 (* Helper: in the tropical semiring, a finite non-empty sum is achieved at
    some member of the underlying set. *)
-private lemma trop_sum_achieves_member:
+lemma trop_sum_achieves_member:
   fixes f :: "'a \<Rightarrow> tropical"
   assumes "finite S" "S \<noteq> {}"
   shows "\<exists> w \<in> S. f w = (\<Sum> x \<in> S. f x)"
@@ -448,7 +448,7 @@ text \<open>
   concatenate them, shortcut to a simple walk, bound by @{text "A* i j"}.
 \<close>
 
-private lemma trop_mat_star_triangle:
+lemma trop_mat_star_triangle:
   assumes hnpc: "no_pos_cycle n A"
   assumes hi: "i < n" "m < n" "j < n"
   shows "trop_mat_star n A i m * trop_mat_star n A m j \<le> trop_mat_star n A i j"
@@ -558,7 +558,7 @@ text \<open>
   for the star at each step.
 \<close>
 
-private lemma path_weight_star_le:
+lemma path_weight_star_le:
   assumes hnpc: "no_pos_cycle n A"
   assumes hi: "i < n" "j < n"
   assumes hw: "w \<in> walks n k i j"
