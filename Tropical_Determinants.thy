@@ -151,7 +151,7 @@ proof (safe)
     using h unfolding permutes_def by blast
   have bij: "bij \<pi>" using permutes_bij[OF h] .
   have "\<pi> 0 \<in> {..<1}"
-    by (metis h permutes_in_image lessThan_iff zero_less_one)
+    using permutes_in_image[OF h, of 0] by simp
   then have "\<pi> 0 = 0" by simp
   show "\<pi> = id"
     by (rule ext)
@@ -205,9 +205,9 @@ proof (safe)
     using h unfolding permutes_def by blast
   have bij: "bij \<pi>" using permutes_bij[OF h] .
   have h0: "\<pi> 0 \<in> {..<2}"
-    by (metis h permutes_in_image lessThan_iff zero_less_numeral)
+    using permutes_in_image[OF h, of 0] by simp
   have h1: "\<pi> 1 \<in> {..<2}"
-    by (metis h permutes_in_image lessThan_iff one_less_numeral_iff semiring_norm(77))
+    using permutes_in_image[OF h, of 1] by simp
   have p0: "\<pi> 0 = 0 \<or> \<pi> 0 = 1" using h0 by auto
   show "\<pi> = id \<or> \<pi> = Fun.swap 0 1 id"
   proof (cases "\<pi> 0 = 0")
