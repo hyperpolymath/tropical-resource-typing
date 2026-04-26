@@ -955,8 +955,8 @@ proof -
       have hlen: "length ?C = Suc (q'-p')"
         using hpq hp'(1) hq'(1) by (simp add: min_def)
       have hhd: "hd ?C = v"
-        by (simp add: hd_append take_C_ne
-                      hd_drop_conv_nth[of p' w, folded hp'(2)] hp'(1))
+        using hp'(1,2) take_C_ne
+        by (simp add: hd_append hd_drop_conv_nth)
       have hlast: "last ?C = v" by simp
       have hset: "set ?C \<subseteq> {..<n}"
       proof -
@@ -981,7 +981,7 @@ proof -
             path_weight A ?C * path_weight A (drop q' w)"
         using split_q .
       also have "\<dots> \<le> 1 * path_weight A (drop q' w)"
-        using trop_mul_le_mul_right[OF cycle_le] by simp
+        using trop_mul_le_mul_right[OF cycle_le] by (simp add: mult.commute)
       also have "\<dots> = path_weight A (drop q' w)" by simp
       finally show ?thesis .
     qed
@@ -993,18 +993,16 @@ proof -
             path_weight A (take p' w @ [v]) * path_weight A (drop p' w)"
         using split_p .
       also have "\<dots> \<le> path_weight A (take p' w @ [v]) * path_weight A (drop q' w)"
-        using trop_mul_le_mul_right[OF drop_p_le] by (simp add: mult.commute)
+        by (rule trop_mul_le_mul_right[OF drop_p_le])
       finally show ?thesis .
     qed
     (* path_weight A ?w' = path_weight A (take p' w @ [v]) * path_weight A (drop q' w) *)
     have w'_eq: "path_weight A ?w' =
                  path_weight A (take p' w @ [v]) * path_weight A (drop q' w)"
     proof -
-      have "path_weight A ?w' = path_weight A (take p' w @ drop q' w)"
-        by simp
-      also have "\<dots> = path_weight A (take p' w @ [hd (drop q' w)]) *
-                      path_weight A (drop q' w)"
-        using path_weight_append[OF take_p_ne drop_q_ne] .
+      have "path_weight A ?w' = path_weight A (take p' w @ [hd (drop q' w)]) *
+                                path_weight A (drop q' w)"
+        using path_weight_append[OF take_p_ne drop_q_ne] by simp
       also have "\<dots> = path_weight A (take p' w @ [v]) * path_weight A (drop q' w)"
         by (simp add: hd_drop_q)
       finally show ?thesis .
@@ -1631,10 +1629,10 @@ proof (induction "length w" arbitrary: k i j w rule: less_induct)
     (* Apply the induction hypothesis to the shorter walk *)
     obtain w' where hw'_in: "w' \<in> simple_walks n i j"
                and hw'_ge: "path_weight A w'' \<le> path_weight A w'"
-      using less.prems[OF hlen hw''_in] by blast
+      using less.hyps[OF hlen hw''_in] by blast
     show ?thesis
       by (rule bexI[OF _ hw'_in])
-         (rule le_trans[OF hge hw'_ge])
+         (rule order_trans[OF hge hw'_ge])
   qed
 qed
 
@@ -2013,8 +2011,8 @@ proof -
       have hlen:  "length ?C = Suc (q'-p')"
         using hpq hp'(1) hq'(1) by (simp add: min_def)
       have hhd:   "hd ?C = v"
-        by (simp add: hd_append take_C_ne
-                      hd_drop_conv_nth[of p' w, folded hp'(2)] hp'(1))
+        using hp'(1,2) take_C_ne
+        by (simp add: hd_append hd_drop_conv_nth)
       have hlast: "last ?C = v" by simp
       have hset:  "set ?C \<subseteq> {..<n}"
       proof -
@@ -2065,7 +2063,7 @@ proof -
     thus ?thesis .
   qed
   have hw'_ne:  "?w' \<noteq> []"
-    using hp'(3) by (simp add: hd_append take_eq_Nil)
+    using hp'(1) hp'(3) by (cases w) auto
   have hw'_set: "set ?w' \<subseteq> {..<n}"
   proof -
     have "set ?w' \<subseteq> set w"
@@ -2184,10 +2182,10 @@ proof (induction "length w" arbitrary: k i j w rule: less_induct)
     qed
     obtain w' where hw'_in: "w' \<in> simple_walksm n i j"
                and hw'_le:  "path_weightm A w' \<le> path_weightm A w''"
-      using less.prems[OF hlen hw''_in] by blast
+      using less.hyps[OF hlen hw''_in] by blast
     show ?thesis
       by (rule bexI[OF _ hw'_in])
-         (rule le_trans[OF hw'_le hle])
+         (rule order_trans[OF hw'_le hle])
   qed
 qed
 

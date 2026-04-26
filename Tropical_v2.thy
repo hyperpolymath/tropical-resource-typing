@@ -333,6 +333,25 @@ lemma trop_bot_eq_zero: "(bot :: tropical) = 0"
   by (simp add: bot_tropical_def zero_tropical_def)
 
 (* ------------------------------------------------------------------ *)
+subsection \<open>6b  Ordered Additive Semigroup (Max-Plus)\<close>
+(* ------------------------------------------------------------------ *)
+
+text \<open>
+  Tropical max-plus addition is monotone: \<open>a \<le> b \<Longrightarrow> c + a \<le> c + b\<close>.
+  This follows from \<open>+ = max\<close>: \<open>max c a \<le> max c b\<close> when \<open>a \<le> b\<close>.
+  Required for @{thm sum_mono} / @{thm add_mono} to apply over tropical.
+\<close>
+
+instance tropical :: ordered_ab_semigroup_add
+proof
+  fix a b c :: tropical
+  assume "a \<le> b"
+  thus "c + a \<le> c + b"
+    by (cases a; cases b; cases c)
+       (auto simp: less_eq_tropical_def plus_tropical_def max_def)
+qed
+
+(* ------------------------------------------------------------------ *)
 subsection \<open>7  Idempotency (Dioid)\<close>
 (* ------------------------------------------------------------------ *)
 
@@ -497,7 +516,7 @@ proof -
       have fin_image: "finite (h ` T)" by (rule finite_imageI[OF assms(3)])
       have ht_le_Max: "h t \<le> Max (h ` T)" by (rule Max_ge[OF fin_image ht_in_image])
       show "v \<le> Max (h ` T)"
-        using hs(2) ht(2) ht_le_Max by (simp add: le_trans)
+        using hs(2) ht(2) ht_le_Max by (simp add: order_trans)
     qed
   qed
   ultimately show ?thesis by simp
@@ -843,6 +862,21 @@ instance
   by standard (simp add: top_tropical_min_def)
 
 end
+
+text \<open>
+  Min-plus addition is monotone: \<open>a \<le> b \<Longrightarrow> c + a \<le> c + b\<close>
+  via \<open>+ = min\<close>: \<open>min c a \<le> min c b\<close> when \<open>a \<le> b\<close>.
+  Required for @{thm sum_mono} / @{thm add_mono} over tropical_min.
+\<close>
+
+instance tropical_min :: ordered_ab_semigroup_add
+proof
+  fix a b c :: tropical_min
+  assume "a \<le> b"
+  thus "c + a \<le> c + b"
+    by (cases a; cases b; cases c)
+       (auto simp: less_eq_tropical_min_def plus_tropical_min_def min_def)
+qed
 
 lemma tropm_bot_eq_one: "(bot :: tropical_min) = 1"
   by (simp add: bot_tropical_min_def one_tropical_min_def)

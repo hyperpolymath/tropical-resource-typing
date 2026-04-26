@@ -236,8 +236,9 @@ proof (rule antisym)
           also have "\<dots> \<le> (\<Sum> l \<in> {..<n}. A i l * trop_mat_star n A l j)"
           proof (rule sum_mono)
             fix l assume hl: "l \<in> {..<n}"
+            hence hln: "l < n" by simp
             show "A i l * trop_mat_pow n A m' l j \<le> A i l * trop_mat_star n A l j"
-              using trop_mul_le_mul_right[OF pow_le_star[OF hl assms(2)]] .
+              using trop_mul_le_mul_right[OF pow_le_star[OF hln assms(2)]] .
           qed
           also have "\<dots> = trop_mat_mul n A (trop_mat_star n A) i j"
             by (simp add: trop_mat_mul_def)
@@ -399,32 +400,30 @@ proof -
         using card_mono[OF finite_lessThan set_w] by simp
       ultimately show False by simp
     qed
-    obtain xs v ys zs where hdecomp: "w = xs @ v # ys @ v # zs"
-      using not_distinct_decomp[OF hnd] by blast
-    have hv1: "v \<in> set (butlast w)"
-    proof -
-      have hpos: "length xs < length (butlast w)" by (simp add: hdecomp)
-      have "butlast w ! length xs = v"
-        by (simp add: hdecomp nth_butlast nth_append)
-      thus ?thesis by (metis hpos nth_mem)
-    qed
-    have hv2: "v \<in> set (tl w)"
-      using hdecomp by (cases xs) (auto simp: set_append)
+    (* cycle_shortcutting dominates w by some w' \<in> simple_walks n i j;
+       simple_walks n i j \<subseteq> walks_le n (n-1) i j (distinct list with set
+       \<subseteq> {..<n} has length \<le> n, hence length-1 \<le> n-1). *)
     obtain w' where hge: "path_weight A w \<le> path_weight A w'"
-               and hlen: "length w' < length w"
-               and hne': "w' \<noteq> []"
-               and hhd: "hd w' = hd w"
-               and hlast: "last w' = last w"
-               and hset: "set w' \<subseteq> {..<n}"
-      using path_weight_cycle_excise[OF hv1 hv2 assms(3) hw] by blast
+               and hw'_simple: "w' \<in> simple_walks n i j"
+      using cycle_shortcutting[OF assms(3) hw] by blast
+    from hw'_simple obtain m where hw'_m: "w' \<in> walks n m i j"
+      and hw'_dist: "distinct w'"
+      unfolding simple_walks_def by auto
+    have hne': "w' \<noteq> []" using hw'_m unfolding walks_def by auto
+    have hset:  "set w' \<subseteq> {..<n}" using walk_vertices_bounded[OF hw'_m] .
+    have hlen_n: "length w' \<le> n"
+    proof -
+      have "length w' = card (set w')" using distinct_card[OF hw'_dist, symmetric] .
+      also have "card (set w') \<le> card {..<n}"
+        using card_mono[OF finite_lessThan hset] .
+      finally show ?thesis by simp
+    qed
     have hw'_in: "w' \<in> walks_le n (n-1) i j"
       unfolding walks_le_def
     proof (rule UN_I[of "length w' - 1"])
-      show "length w' - 1 \<in> {..n-1}" using hlen len_w by simp
-      show "w' \<in> walks n (length w' - 1) i j"
-        unfolding walks_def
-        using hne' hhd hlast hset
-        by (auto simp: walk_hd[OF hw] walk_last[OF hw])
+      show "length w' - 1 \<in> {..n-1}" using hlen_n hne' by (cases w') auto
+      have hm: "m = length w' - 1" using hw'_m unfolding walks_def by auto
+      show "w' \<in> walks n (length w' - 1) i j" using hw'_m hm by simp
     qed
     show "\<exists> w' \<in> walks_le n (n-1) i j. path_weight A w \<le> path_weight A w'"
       using hge hw'_in by auto
@@ -469,9 +468,12 @@ proof -
     show ?case
     proof (intro impI allI)
       fix i' j' assume "i' < n" "j' < n"
+      have step: "trop_mat_id n i' j' + (trop_mat_id n i' j' + trop_mat_mul n A X i' j')
+                  = trop_mat_id n i' j' + trop_mat_mul n A X i' j'"
+        by (simp add: add.assoc[symmetric] tropical_add_idem)
       have "trop_mat_id n i' j' \<le>
             trop_mat_add n (trop_mat_id n) (trop_mat_mul n A X) i' j'"
-        by (simp add: trop_mat_add_def le_add_same_cancel1)
+        unfolding trop_mat_add_def using step trop_add_le_iff by metis
       also have "\<dots> \<le> X i' j'" using assms(1) \<open>i' < n\<close> \<open>j' < n\<close> by auto
       finally show "trop_mat_pow n A 0 i' j' \<le> X i' j'" by simp
     qed
@@ -493,7 +495,14 @@ proof -
         also have "\<dots> = (\<Sum> l \<in> {..<n}. trop_mat_pow n A 1 i' l * trop_mat_pow n A k l j')"
           by (simp add: trop_mat_mul_def)
         also have "\<dots> = (\<Sum> l \<in> {..<n}. A i' l * trop_mat_pow n A k l j')"
-          by (rule sum.cong, simp) (simp add: trop_mat_pow_one hi')
+        proof (rule sum.cong[OF refl])
+          fix l assume "l \<in> {..<n}"
+          hence hl: "l < n" by simp
+          have "trop_mat_pow n A 1 i' l = A i' l"
+            using trop_mat_pow_one[OF hi' hl] .
+          thus "trop_mat_pow n A 1 i' l * trop_mat_pow n A k l j' =
+                A i' l * trop_mat_pow n A k l j'" by simp
+        qed
         finally show ?thesis by simp
       qed
       show "trop_mat_pow n A (Suc k) i' j' \<le> X i' j'"
@@ -504,13 +513,21 @@ proof -
         also have "\<dots> \<le> (\<Sum> l \<in> {..<n}. A i' l * X l j')"
         proof (rule sum_mono)
           fix l assume hl: "l \<in> {..<n}"
+          hence hln: "l < n" by simp
           show "A i' l * trop_mat_pow n A k l j' \<le> A i' l * X l j'"
-            using trop_mul_le_mul_right[OF ih[rule_format, OF hl hj']] .
+            using trop_mul_le_mul_right[OF ih[rule_format, OF hln hj']] .
         qed
         also have "\<dots> = trop_mat_mul n A X i' j'"
           by (simp add: trop_mat_mul_def)
         also have "\<dots> \<le> trop_mat_add n (trop_mat_id n) (trop_mat_mul n A X) i' j'"
-          by (simp add: trop_mat_add_def le_add_same_cancel2)
+        proof -
+          let ?a = "trop_mat_mul n A X i' j'"
+          let ?b = "trop_mat_id n i' j'"
+          have step: "?a + (?b + ?a) = ?b + ?a"
+            by (simp add: add.assoc[symmetric] add.commute tropical_add_idem)
+          show ?thesis
+            unfolding trop_mat_add_def using step trop_add_le_iff by metis
+        qed
         also have "\<dots> \<le> X i' j'" using assms(1) hi' hj' by auto
         finally show ?thesis .
       qed
@@ -568,10 +585,10 @@ text \<open>
 
 lemma sum_le_const:
   fixes f :: "nat \<Rightarrow> tropical"
-  assumes "\<And> x. x \<in> S \<Longrightarrow> f x \<le> c"
-  assumes "finite S"
+  assumes hbound: "\<And> x. x \<in> S \<Longrightarrow> f x \<le> c"
+  assumes hfin: "finite S"
   shows "(\<Sum> x \<in> S. f x) \<le> c"
-  using assms
+  using hfin hbound
 proof (induction S rule: finite_induct)
   case empty
   show ?case by (simp add: zero_tropical_def bot_tropical_def trop_bot_eq_zero)

@@ -62,6 +62,7 @@ lemma tropm_add_eq_left_or_right:
   by (cases a; cases b) (auto simp: plus_tropical_min_def min_def)
 
 lemma sum_tropical_min_mem:
+  fixes f :: "'a \<Rightarrow> tropical_min"
   assumes "finite S" "S \<noteq> {}"
   shows "(\<Sum> x \<in> S. f x) \<in> f ` S"
   using assms
@@ -72,18 +73,23 @@ next
   case (insert x F)
   have step: "(\<Sum> y \<in> insert x F. f y) = f x + (\<Sum> y \<in> F. f y)"
     by (simp add: sum.insert[OF insert.hyps(1) insert.hyps(3)])
-  from tropm_add_eq_left_or_right
   show ?case
-  proof
-    assume eq: "f x + (\<Sum> y \<in> F. f y) = f x"
+  proof (cases "f x + (\<Sum> y \<in> F. f y) = f x")
+    case True
     hence sum_eq: "(\<Sum> y \<in> insert x F. f y) = f x" using step by simp
     have "f x \<in> f ` insert x F" by simp
     thus ?thesis using sum_eq by auto
   next
-    assume eq: "f x + (\<Sum> y \<in> F. f y) = (\<Sum> y \<in> F. f y)"
-    from insert.IH obtain z where "z \<in> F" "f z = (\<Sum> y \<in> F. f y)"
+    case False
+    have eq: "f x + (\<Sum> y \<in> F. f y) = (\<Sum> y \<in> F. f y)"
+      using False tropm_add_eq_left_or_right[of "f x" "(\<Sum> y \<in> F. f y)"] by blast
+    hence sum_eq: "(\<Sum> y \<in> insert x F. f y) = (\<Sum> y \<in> F. f y)"
+      using step by simp
+    from insert.IH obtain z where hz: "z \<in> F" "f z = (\<Sum> y \<in> F. f y)"
       by (auto simp: image_iff)
-    then show ?thesis using step eq by (auto simp: image_insert)
+    have "(\<Sum> y \<in> insert x F. f y) = f z" using sum_eq hz(2) by simp
+    moreover have "f z \<in> f ` insert x F" using hz(1) by simp
+    ultimately show ?thesis by auto
   qed
 qed
 
@@ -144,31 +150,31 @@ subsection \<open>5.1  1\<times>1 case\<close>
 (* ------------------------------------------------------------------ *)
 
 lemma permutes_lessThan_1:
-  "{\<pi> :: nat \<Rightarrow> nat. \<pi> permutes {..<1}} = {id}"
+  "{\<pi>. \<pi> permutes {..<(1 :: nat)}} = {id}"
 proof (safe)
-  fix \<pi> assume h: "\<pi> permutes {..<1}"
-  have fix_out: "\<forall>x. x \<notin> {..<1} \<longrightarrow> \<pi> x = x"
+  fix \<pi> :: "nat \<Rightarrow> nat" assume h: "\<pi> permutes {..<(1 :: nat)}"
+  have fix_out: "\<forall>x. x \<notin> {..<(1 :: nat)} \<longrightarrow> \<pi> x = x"
     using h unfolding permutes_def by blast
   have bij: "bij \<pi>" using permutes_bij[OF h] .
-  have "\<pi> 0 \<in> {..<1}"
-    using permutes_in_image[OF h, of 0] by simp
+  have "\<pi> 0 \<in> {..<(1 :: nat)}"
+    using permutes_in_image[OF h] by simp
   then have "\<pi> 0 = 0" by simp
   show "\<pi> = id"
     by (rule ext)
        (metis \<open>\<pi> 0 = 0\<close> fix_out lessThan_iff less_one id_def not_less)
 next
-  show "id permutes {..<1}" by (rule permutes_id)
+  show "id permutes {..<(1 :: nat)}" by (rule permutes_id)
 qed
 
 lemma tropm_det_1x1:
   "tropm_det 1 A = A 0 0"
 proof -
   have "tropm_det 1 A
-        = \<Sum> \<pi> \<in> {id}. perm_weightm 1 A \<pi>"
-    unfolding tropm_det_def
-    by (simp add: permutes_lessThan_1)
-  also have "\<dots> = perm_weightm 1 A id"
-    by simp
+        = sum (perm_weightm 1 A) {\<pi>. \<pi> permutes {..<(1 :: nat)}}"
+    unfolding tropm_det_def by simp
+  also have "\<dots> = sum (perm_weightm 1 A) {id}"
+    using permutes_lessThan_1 by simp
+  also have "\<dots> = perm_weightm 1 A id" by simp
   also have "\<dots> = A 0 0"
     unfolding perm_weightm_def by simp
   finally show ?thesis .
@@ -183,93 +189,42 @@ text \<open>
   directly from @{text permutes_def}.
 \<close>
 
-lemma swap_0_1_permutes_lessThan_2:
-  "Fun.swap 0 1 id permutes {..<2}"
-  unfolding permutes_def
-proof (intro conjI allI)
-  fix x :: nat
-  show "x \<notin> {..<2} \<longrightarrow> Fun.swap 0 1 id x = x"
-    by (auto simp: Fun.swap_def)
-next
-  fix y :: nat
-  show "\<exists>!x. Fun.swap 0 1 id x = y"
-    by (intro ex1I[of _ "Fun.swap 0 1 id y"])
-       (auto simp: Fun.swap_def)
-qed
+lemma lessThan_2_eq: "{..<(2 :: nat)} = {0, 1}"
+  by auto
 
 lemma permutes_lessThan_2:
-  "{\<pi> :: nat \<Rightarrow> nat. \<pi> permutes {..<2}} = {id, Fun.swap 0 1 id}"
-proof (safe)
-  fix \<pi> assume h: "\<pi> permutes {..<2}"
-  have fix_out: "\<forall>x. x \<notin> {..<2} \<longrightarrow> \<pi> x = x"
-    using h unfolding permutes_def by blast
-  have bij: "bij \<pi>" using permutes_bij[OF h] .
-  have h0: "\<pi> 0 \<in> {..<2}"
-    using permutes_in_image[OF h, of 0] by simp
-  have h1: "\<pi> 1 \<in> {..<2}"
-    using permutes_in_image[OF h, of 1] by simp
-  have p0: "\<pi> 0 = 0 \<or> \<pi> 0 = 1" using h0 by auto
-  show "\<pi> = id \<or> \<pi> = Fun.swap 0 1 id"
-  proof (cases "\<pi> 0 = 0")
-    case True
-    have "\<pi> 1 = 1"
-    proof -
-      have "\<pi> 1 \<noteq> 0"
-      proof
-        assume "\<pi> 1 = 0"
-        with True have "\<pi> 0 = \<pi> 1" by simp
-        with bij have "(0 :: nat) = 1" by (auto simp: bij_def inj_def)
-        thus False by simp
-      qed
-      with h1 show "\<pi> 1 = 1" by auto
-    qed
-    left
-    show "\<pi> = id"
-      by (rule ext)
-         (metis True \<open>\<pi> 1 = 1\<close> fix_out lessThan_iff numeral_2_eq_2
-                less_2_cases id_def)
-  next
-    case False
-    with p0 have pi0: "\<pi> 0 = 1" by simp
-    have "\<pi> 1 = 0"
-    proof -
-      have "\<pi> 1 \<noteq> 1"
-      proof
-        assume "\<pi> 1 = 1"
-        with pi0 have "\<pi> 0 = \<pi> 1" by simp
-        with bij have "(0 :: nat) = 1" by (auto simp: bij_def inj_def)
-        thus False by simp
-      qed
-      with h1 show "\<pi> 1 = 0" by auto
-    qed
-    right
-    show "\<pi> = Fun.swap 0 1 id"
-      by (rule ext)
-         (metis pi0 \<open>\<pi> 1 = 0\<close> fix_out lessThan_iff numeral_2_eq_2
-                less_2_cases Fun.swap_def id_def)
-  qed
-next
-  show "id permutes {..<2}" by (rule permutes_id)
-next
-  show "Fun.swap 0 1 id permutes {..<2}"
-    by (rule swap_0_1_permutes_lessThan_2)
+  "{\<pi>. \<pi> permutes {..<(2 :: nat)}}
+   = {id, Transposition.transpose (0 :: nat) 1}"
+proof -
+  have "{\<pi>. \<pi> permutes {..<(2 :: nat)}}
+      = {\<pi>. \<pi> permutes {0 :: nat, 1}}"
+    by (simp add: lessThan_2_eq)
+  also have "\<dots> = {id, Transposition.transpose (0 :: nat) 1}"
+    using permutes_doubleton_iff[where a = "0 :: nat" and b = 1] by blast
+  finally show ?thesis .
 qed
 
 lemma tropm_det_2x2:
   "tropm_det 2 A = (A 0 0 * A 1 1) + (A 0 1 * A 1 0)"
 proof -
-  have neq: "(id :: nat \<Rightarrow> nat) \<noteq> Fun.swap 0 1 id"
-    by (simp add: Fun.swap_def fun_eq_iff)
+  have neq: "(id :: nat \<Rightarrow> nat) \<noteq> Transposition.transpose 0 1"
+  proof
+    assume "(id :: nat \<Rightarrow> nat) = Transposition.transpose 0 1"
+    hence "id (0 :: nat) = Transposition.transpose 0 1 0" by simp
+    thus False by (simp add: transpose_def)
+  qed
   have "tropm_det 2 A
-        = \<Sum> \<pi> \<in> {id, Fun.swap 0 1 id}. perm_weightm 2 A \<pi>"
-    unfolding tropm_det_def
-    by (simp add: permutes_lessThan_2)
-  also have "\<dots> = perm_weightm 2 A id + perm_weightm 2 A (Fun.swap 0 1 id)"
-    by (simp add: sum.insert[of "{Fun.swap 0 1 id}" id] neq)
+        = sum (perm_weightm 2 A) {\<pi>. \<pi> permutes {..<(2 :: nat)}}"
+    unfolding tropm_det_def by simp
+  also have "\<dots> = sum (perm_weightm 2 A) {id, Transposition.transpose (0 :: nat) 1}"
+    using permutes_lessThan_2 by simp
+  also have "\<dots> = perm_weightm 2 A id
+                + perm_weightm 2 A (Transposition.transpose 0 1)"
+    using neq by simp
   also have "perm_weightm 2 A id = A 0 0 * A 1 1"
-    unfolding perm_weightm_def by simp
-  also have "perm_weightm 2 A (Fun.swap 0 1 id) = A 0 1 * A 1 0"
-    unfolding perm_weightm_def by (simp add: Fun.swap_def)
+    unfolding perm_weightm_def by (simp add: lessThan_2_eq)
+  also have "perm_weightm 2 A (Transposition.transpose 0 1) = A 0 1 * A 1 0"
+    unfolding perm_weightm_def by (simp add: lessThan_2_eq transpose_def)
   finally show ?thesis .
 qed
 
@@ -297,8 +252,8 @@ theorem optimal_assignment:
 proof -
   from tropm_det_mem[OF assms]
   obtain \<pi>\<^sub>0 where
-    hperm : "\<pi>\<^sub>0 \<in> {\<pi>. \<pi> permutes {..<n}}"
-    and heq : "perm_weightm n A \<pi>\<^sub>0 = tropm_det n A"
+    hperm : "\<pi>\<^sub>0 permutes {..<n}"
+    and heq : "tropm_det n A = perm_weightm n A \<pi>\<^sub>0"
     by (auto simp: image_iff)
   show ?thesis
   proof (intro exI[of _ \<pi>\<^sub>0] conjI allI impI)

@@ -650,7 +650,7 @@ proof clarify
         unfolding trop_walks_sum_def by simp
       finally show ?thesis using star_eq by simp
     qed
-    show ?thesis using le_trans[OF step1 step2] .
+    show ?thesis using order_trans[OF step1 step2] .
   qed
 qed
 
