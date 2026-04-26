@@ -6,8 +6,8 @@
 
 [metadata]
 project = "tropical-resource-typing"
-version = "0.3.0"
-last-updated = "2026-04-26T17:30:00Z"
+version = "0.3.1"
+last-updated = "2026-04-26T17:55:00Z"
 status = "active"  # active | paused | archived
 # Bumped 0.2 → 0.3 at session-close 2026-04-26 (afternoon swarm dogfood):
 # - EI-1 (echidna --project-root) landed in github:hyperpolymath/echidna
@@ -210,7 +210,7 @@ ei-1 = "implemented + verified empirically (ROOT-generation correct; live build 
 bi-1 = "implemented + verified (ping/unknown/malformed roundtrip via socat)"
 oracle = "implemented + verified (correct/wrong/fuzz fixtures all behave correctly)"
 sandbox = "wired through CLI; bwrap/podman both detected as installed; sandbox-fail-soft via --sandbox none"
-chapel = "deferred via lazy-gate (RPM downloaded to /tmp; rpm-ostree layering left to user)"
+chapel = "ACTIVE post-reboot 2026-04-26: chpl 2.8.0 (LLVM 21.1.8) on PATH at /home/hyper/chapel-2.8.0/bin/linux64-x86_64/chpl. tools/check-chapel-bridge.sh exits 0. cap:chapel-2 still optional (no proofs/parallel-tropical/ consumers yet)."
 6a2-sextet = "completed (was 2/6, now 6/6)"
 headline-swarm-attempt = "in flight at session-close; see SWARM-SESSION-2026-04-26.adoc"
 honest-assessment = "see SWARM-SESSION-2026-04-26.adoc § Honest swarm-load-bearing assessment"

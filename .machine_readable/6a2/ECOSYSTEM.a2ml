@@ -4,7 +4,7 @@
 # ECOSYSTEM.a2ml — tropical-resource-typing ecosystem position
 
 [metadata]
-version = "0.2.0"
+version = "0.2.1"
 last-updated = "2026-04-26"
 
 [project]
@@ -63,11 +63,14 @@ verified-on = "2026-04-26"
 isabelle = { version = "Isabelle2025-1", path = "/usr/local/bin/isabelle", required = true, status = "present" }
 julia    = { version = "1.12.5",         path = "/home/hyper/.opsm/shims/julia", required = true, status = "present" }
 echidna  = { binary = "/var/mnt/eclipse/repos/echidna/target/debug/echidna", required = true, status = "present" }
-chapel   = { version = "n/a", path = "n/a", required = false, status = "absent",
-             reason = "guix install chapel returns 'unknown package' (Guix does not package Chapel as of 2026-04-26); Fedora dnf only carries python3-sphinxcontrib-chapeldomain (unrelated). Building from source deferred. The repo is now lazy-gated via tools/chapel-bridge.scm + coordination.k9 'cap:chapel-2: optional' so absence does not block the standard build path." }
-bwrap    = { version = "see /usr/bin/bwrap --version", path = "/usr/bin/bwrap", required = false, status = "present",
-             notes = "Used by --sandbox bwrap path through echidna's executor::sandbox layer. Discovered installed; not yet exercised on /var/mnt/eclipse symlinked mount — risk noted in plan." }
-podman   = { version = "see /usr/bin/podman --version", path = "/usr/bin/podman", required = false, status = "present",
+chapel   = { version = "2.8.0", path = "/home/hyper/chapel-2.8.0/bin/linux64-x86_64/chpl", required = false, status = "present",
+             llvm = "21.1.8",
+             installed-on = "2026-04-26",
+             install-method = "official Fedora 43 RPM via rpm-ostree (post-reboot, Kinoite)",
+             reason = "Originally absent: Guix does not package Chapel. Resolved by installing the upstream RPM. Now active on PATH; lazy-gate at tools/chapel-bridge.scm continues to honour the optional contract — proofs/parallel-tropical/ remains empty so cap:chapel-2 is not yet consumed by any proof." }
+bwrap    = { version = "0.11.0", path = "/usr/bin/bwrap", required = false, status = "present",
+             notes = "Used by --sandbox bwrap path through echidna's executor::sandbox layer. Not yet exercised on /var/mnt/eclipse symlinked mount — risk noted in plan." }
+podman   = { version = "5.8.2", path = "/usr/bin/podman", required = false, status = "present",
              notes = "Alternative sandbox; not the default this session." }
 guile    = { version = "n/a (not yet verified)", required = false, status = "needed-by chapel-bridge.scm",
              notes = "tools/chapel-bridge.scm is Guile-style fallback loader; in the chapel-absent path it is a no-op stub document, so Guile is not strictly required at runtime today." }
