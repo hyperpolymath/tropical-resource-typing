@@ -459,12 +459,20 @@ lemma trop_mat_star_triangle:
   assumes hi: "i < n" "m < n" "j < n"
   shows "trop_mat_star n A i m * trop_mat_star n A m j \<le> trop_mat_star n A i j"
 proof (cases "trop_mat_star n A i m = NegInf")
-  case True thus ?thesis by simp
+  case True
+  have h1: "trop_mat_star n A i m * trop_mat_star n A m j = NegInf"
+    by (simp add: True times_tropical_def)
+  have h2: "(NegInf :: tropical) \<le> trop_mat_star n A i j" by simp
+  show ?thesis using h1 h2 by simp
 next
   case hne_im: False
   show ?thesis
   proof (cases "trop_mat_star n A m j = NegInf")
-    case True thus ?thesis by simp
+    case True
+    have h1: "trop_mat_star n A i m * trop_mat_star n A m j = NegInf"
+      using True by (cases "trop_mat_star n A i m") (simp_all add: times_tropical_def)
+    have h2: "(NegInf :: tropical) \<le> trop_mat_star n A i j" by simp
+    show ?thesis using h1 h2 by simp
   next
     case hne_mj: False
     obtain w_im where hw_im: "w_im \<in> walks_le n (n-1) i m"
@@ -583,7 +591,8 @@ proof (induction k arbitrary: i j w)
   have "path_weight (trop_mat_star n A) w = (1 :: tropical)"
     by (simp add: wval)
   also have "\<dots> \<le> trop_mat_star n A i i"
-    using trop_mat_star_ge_id[OF hi0 hi0] by simp
+    using trop_mat_star_ge_id[OF hi0 hi0, of A]
+    by (simp add: trop_mat_id_def one_tropical_def)
   finally show ?case using heq by simp
 next
   case (Suc k')
@@ -687,7 +696,7 @@ proof (rule antisym)
     proof
       fix w assume hw: "w \<in> walks_le n (n-1) i j"
       show "path_weight (trop_mat_star n A) w \<le> trop_mat_star n A i j"
-        using path_weight_star_eq_concat[OF assms hw] .
+        using path_weight_star_eq_concat[OF assms(1) assms(2) hw] .
     qed
     (* Therefore the sum (= join) is also \<le> A* i j *)
     have "\<forall> w \<in> walks_le n (n-1) i j.
@@ -779,8 +788,15 @@ text \<open>
 lemma trop_cno_close_conditional:
   assumes "\<And> A. trop_mat_star n A = trop_mat_close n A"
   shows "is_trop_cno n (trop_mat_close n)"
-  by (rule is_trop_cno_intro)
-     (use assms in simp_all)
+proof (rule is_trop_cno_intro)
+  fix A
+  have "trop_mat_star n (trop_mat_close n A) = trop_mat_close n (trop_mat_close n A)"
+    using assms .
+  also have "\<dots> = trop_mat_close n A" by (rule trop_mat_close_close)
+  finally have "trop_mat_star n (trop_mat_close n A) = trop_mat_close n A" .
+  thus "\<forall>i<n. \<forall>j<n. trop_mat_star n (trop_mat_close n A) i j = trop_mat_close n A i j"
+    by simp
+qed
 
 (* ------------------------------------------------------------------ *)
 subsection \<open>15  Self-Addition is a CNO\<close>

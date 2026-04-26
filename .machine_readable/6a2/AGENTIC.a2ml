@@ -1,0 +1,127 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# AGENTIC.a2ml — Agent permissions, constraints, hooks.
+# Created 2026-04-26 to complete the 6a2 sextet.
+
+[metadata]
+version = "0.1.0"
+last-updated = "2026-04-26"
+schema = "6a2/AGENTIC"
+
+[agents]
+# Agents that are allowed to act on this repository, what they may do,
+# and which sandbox they run under. This file is consulted by:
+#   - Burrower (specialist playbooks against the proof inventory)
+#   - echidnabot (PR comments on proof regressions)
+#   - sustainabot (energy/carbon budget enforcement via eclexiaiser)
+#   - rhodibot   (RSR/CCCP compliance gating)
+
+[[agent]]
+name        = "Burrower.Algebraist"
+role        = "specialist"
+purpose     = """
+Recognises algebraic structure (semirings, monoids, dioids, ideals).
+For tropical-resource-typing, primary owner of Tropical_Determinants
+goals + Tropical_v2 semiring lemmas.
+"""
+playbook    = ["simp", "auto", "blast", "metis", "force"]
+oracle      = "tools/julia-oracle.jl (tropical-determinant family)"
+sandbox     = "bwrap"
+ledger-tag  = "Algebraist"
+
+[[agent]]
+name        = "Burrower.OrderTheorist"
+role        = "specialist"
+purpose     = """
+Recognises order/lattice structure (≤, sup, inf, monotone, fixpoint).
+Primary owner of Kleene-star fixpoint lemmas, sum-bounded reasoning.
+"""
+playbook    = ["simp", "auto", "blast", "metis", "force", "eq_trans_chain"]
+sandbox     = "bwrap"
+ledger-tag  = "OrderTheorist"
+
+[[agent]]
+name        = "Burrower.Combinatorialist"
+role        = "specialist"
+purpose     = """
+Recognises finite/discrete structure (sums over finite sets, walks,
+permutations, combinatorial identities). Primary owner of walk-set
+lemmas, path_weight reasoning, Tropical_Matrices_Full cycle-excise
+family.
+"""
+playbook    = ["simp", "auto", "metis append_Cons append_Nil", "force",
+               "case_tac w; auto"]
+sandbox     = "bwrap"
+ledger-tag  = "Combinatorialist"
+
+[[agent]]
+name        = "Oracle"
+role        = "pre-prove-check"
+purpose     = """
+Numerical ground-truth oracle. Runs BEFORE any Burrower specialist
+playbook on goals in known oracle families. A `disagree` or
+`fuzz-counter` verdict marks the lemma statement as suspect; specialists
+do not attempt the proof.
+"""
+families    = ["tropical-determinant-min", "tropical-determinant-max"]
+script      = "tools/julia-oracle.jl"
+sandbox     = "subprocess"  # julia subprocess; sandbox future work
+ledger-tag  = "Oracle"
+
+[[agent]]
+name        = "echidnabot"
+role        = "ci-comment"
+purpose     = """
+PR-time bot. Posts swarm-findings sections in PR comments (EBI-1, not
+yet implemented). Currently posts plain proof-regression diagnostics.
+"""
+permissions = ["read-pr", "post-pr-comment"]
+sandbox     = "podman"
+ledger-tag  = "echidnabot"
+
+[constraints]
+# Hard constraints every agent acting on this repo MUST honour.
+constraints = [
+  "NEVER attempt a proof flagged by Oracle as 'oracle-counter-example'.",
+  "NEVER skip `isabelle build_log -H Error` after a build — stdout filtering is forbidden.",
+  "NEVER push to non-origin remotes (GitHub-only mirroring policy).",
+  "NEVER claim 'green' / 'all proofs verified' without an in-this-turn build_log artefact.",
+  "NEVER use `believe_me`, `assert_total`, `Admitted`, `sorry`, `unsafeCoerce`, `Obj.magic`.",
+  "Every swarm attempt — success OR failure — MUST land in the ledger.",
+  "10-min wall-clock budget per swarm attempt; failure logged as anti-pattern, not silent.",
+]
+
+[hooks]
+# Lifecycle hooks. Each hook = an A2ML/Bash callback the harness fires.
+
+[[hook]]
+event = "on-session-open"
+description = """
+Re-verify cap:* declarations in coordination.k9 against the live host.
+Update [verified-toolchains] in ECOSYSTEM.a2ml. Re-run
+`isabelle build_log -H Error Tropical_Semirings` to refresh the
+authoritative failure inventory; flag any drift from STATE.a2ml.
+"""
+script = "tools/check-chapel-bridge.sh && isabelle build_log -H Error Tropical_Semirings"
+
+[[hook]]
+event = "on-swarm-attempt-block"
+description = """
+Fired when Oracle returns `disagree` or `fuzz-counter`. Logs the
+counter-example to STATE.a2ml [oracle-blocked-lemmas] and posts a
+PR comment if a PR is open.
+"""
+
+[[hook]]
+event = "on-session-close"
+description = """
+Update STATE.a2ml [maintenance-status] with the new build_log result.
+Append the session report to docs/SWARM-SESSION-<date>.adoc. Update
+all six 6a2 files together (sextet rule).
+"""
+
+[ledger]
+default-path = "/var/lib/burrower/ledger.jsonl"
+session-path = "/tmp/burrow-swarm-headline-{date}.jsonl"
+retention-days = 365  # ledger entries are knowledge, not transient state

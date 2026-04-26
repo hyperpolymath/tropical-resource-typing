@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# NEUROSYM.a2ml — Neurosymbolic / Hypatia configuration.
+# Created 2026-04-26 to complete the 6a2 sextet.
+
+[metadata]
+version = "0.1.0"
+last-updated = "2026-04-26"
+schema = "6a2/NEUROSYM"
+
+[hypatia]
+# Hypatia is the estate's neurosymbolic CI/CD intelligence layer; it
+# consumes AssailReport JSON from panic-attack and applies symbolic
+# rules (Elixir-based since Logtalk was removed 2026-04-12).
+enabled = true
+config-source = "github:hyperpolymath/hypatia"
+rule-pack = "tropical-resource-typing-rules.ex"  # to be authored
+notes = """
+The proof-failure inventory in STATE.a2ml is downstream of an Hypatia
+rule-pack that scans build artefacts. Rules to encode:
+  - "doc-antiquotation site is cosmetic, downgrade to Note"
+  - "Type unification 'a::{one,ord} not of sort zero is HOL.Permutations
+    class-instance regression in Isabelle 2024->2025"
+  - "OF: multiple unifiers on path_weight_cycle_excise is the v ∈ butlast
+    + v ∈ tl insufficient-pinning bug"
+"""
+
+[symbolic-rules]
+# Local symbolic rules (no neural component). Plain JSON-Logic-ish
+# A2ML clauses; consumed by gitbot-fleet's rhodibot during PR review.
+[[rule]]
+id          = "trtt-no-stdout-error-count"
+description = "Reject any PR claim about failure count not citing isabelle build_log -H Error."
+detect      = """
+PR body OR commit message claims an N-failure count without referencing
+'isabelle build_log -H Error' OR a path under 'docs/BUILD-STATUS-*.adoc'.
+"""
+action      = "comment-with-fix-suggestion"
+
+[[rule]]
+id          = "trtt-no-state-vs-buildlog-drift"
+description = "Reject if STATE.a2ml total-proof-failure-sites != build_log -H Error count."
+action      = "block-merge"
+
+[neural]
+# Neural component: ECHIDNA's GNN/Transformer layer. Currently unused
+# by tropical-resource-typing; documented for future wiring.
+gnn-server-url = "(unset; defaults to ECHIDNA's local Julia GNN server when --neural is enabled)"
+premise-selection-corpus = "training_data/* under github:hyperpolymath/echidna (553 MB, 66,674 proofs)"
+status = """
+ECHIDNA's GNN endpoint falls back to cosine similarity when no trained
+model is available (echidna v2.1+, src/julia/api/gnn_endpoint.jl). The
+corpus exists; training has not been triggered. Out of scope for
+tropical-resource-typing this session.
+"""
+
+[swarm-relevance-thresholds]
+# Burrower's specialist relevance threshold — scores below this are
+# treated as "not engaged" and the specialist's homes don't appear in
+# synthesis. Tuned per-project to balance signal-to-noise.
+default = 0.20
+algebraist = 0.20
+order-theorist = 0.20
+combinatorialist = 0.20
+
+[oracle-coverage]
+# Which proof families have a numerical oracle wired today.
+covered = [
+  "tropical-determinant-min  (impl/tropical/TropicalDeterminant.jl)",
+  "tropical-determinant-max  (impl/tropical/TropicalDeterminant.jl)",
+]
+not-yet-covered = [
+  "tropical-matrix-power",
+  "tropical-walks-sum",
+  "tropical-mat-star (Kleene)",
+  "no-positive-cycle predicate",
+  "path_weight_cycle_excise (combinatorial)",
+]

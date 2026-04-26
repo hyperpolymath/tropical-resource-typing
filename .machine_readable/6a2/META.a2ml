@@ -1,0 +1,137 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# META.a2ml — Architecture decisions, design rationale.
+# Created 2026-04-26 to complete the 6a2 sextet (was missing alongside
+# AGENTIC/NEUROSYM/PLAYBOOK; only STATE+ECOSYSTEM existed before).
+
+[metadata]
+version = "0.1.0"
+last-updated = "2026-04-26"
+schema = "6a2/META"
+
+[architecture-decisions]
+# ADRs in chronological order. Use proposed | accepted | deprecated | superseded.
+
+[[adr]]
+id          = "ADR-001"
+title       = "Isabelle/HOL is the proof load-bearing layer; Lean 4 is research"
+status      = "accepted"
+date        = "2026-03"
+context     = """
+The repo carries both an Isabelle formalisation (~6,900 LOC across 9 .thy
+files) and a Lean 4 file (TropicalSessionTypes.lean) on speculative
+session-type extensions. Maintaining both as primary artefacts doubles
+proof-engineering cost.
+"""
+decision    = """
+The Isabelle session `Tropical_Semirings` is the load-bearing
+formalisation; Lean 4 stays as research scratch (no CI gating, no
+parity requirement with Isabelle).
+"""
+consequence = """
+All swarm/Burrower integration work targets the Isabelle backend.
+Lean 4 changes don't gate session reports.
+"""
+
+[[adr]]
+id          = "ADR-002"
+title       = "Authoritative error inventory comes from `isabelle build_log -H Error`"
+status      = "accepted"
+date        = "2026-04-26"
+context     = """
+The 2026-04-26 morning STATE.a2ml claimed 6 failure sites across 3 theories
+based on stdout filtering during `isabelle build`. The authoritative
+heap-reading source revealed 16 proof-failure sites + 10 doc sites — a
+~3× under-count from the stdout filter. Corrections in
+docs/BUILD-STATUS-2026-04-26.adoc v2.
+"""
+decision    = """
+Every claim about failure counts MUST cite `isabelle build_log -H Error
+<session>`, never a stdout filter. STATE.a2ml [maintenance-status]
+methodology-note enforces this; CI session-close steps must re-run
+the heap-reading source after every `isabelle build`.
+"""
+consequence = """
+A second drift discovered THIS session (afternoon, 2026-04-26): even
+the morning's heap-reading inventory had drifted by the afternoon —
+K-403 no longer exists; the Tropical_Kleene file evolved and now has
+an early lexical error at line 206 that prevents later sites from
+being checked at all. Lesson: always re-run the heap reader at
+session-start, not just session-close.
+"""
+
+[[adr]]
+id          = "ADR-003"
+title       = "Burrower swarm + Echidna + Julia oracle is the proof-repair flow"
+status      = "accepted"
+date        = "2026-04-26"
+context     = """
+Manually closing 16 proof failures one at a time is repetitive. Burrower
+(github:hyperpolymath/proof-burrower) routes goals through specialists,
+ECHIDNA carries the 105-prover backend, and Julia's TropicalDeterminant.jl
+ground-truths claims numerically before Isabelle is invoked.
+"""
+decision    = """
+Adopt the swarm flow:
+  1. Optional pre-check via tools/julia-oracle.jl (safe-learning c).
+  2. burrower attempt --project-root . --sandbox bwrap (safe-learning b).
+  3. Specialists attempt their playbooks; ledger records every step.
+  4. Honest report — closed proofs AND anti-patterns.
+"""
+consequence = """
+Two estate-wide blockers landed this session: EI-1 (echidna --project-root)
+and BI-1 (burrower serve socket). Headline ran the swarm against a real
+goal; honest assessment of what worked is in
+docs/SWARM-SESSION-2026-04-26.adoc.
+"""
+
+[[adr]]
+id          = "ADR-004"
+title       = "Chapel optional via lazy-gate; deferred install"
+status      = "accepted"
+date        = "2026-04-26"
+context     = """
+Chapel was designated optional in the brief (only proofs/parallel-tropical/
+would consume it). It is not packaged in Guix, and has Fedora 42/43 RPMs
+upstream that need rpm-ostree layering on Kinoite (reboot disruption).
+"""
+decision    = """
+coordination.k9 declares cap:chapel-2: optional. The bridge layer
+(tools/chapel-bridge.scm + tools/check-chapel-bridge.sh) detects absence
+and degrades silently. Chapel install deferred to a quieter session.
+"""
+consequence = """
+Standard `isabelle build -d . Tropical_Semirings` is unaffected by
+Chapel state. proofs/parallel-tropical/ remains an empty future
+subdirectory.
+"""
+
+[design-rationale]
+why-julia-not-rust-for-oracle = """
+The numerical oracle could be in Rust (faster startup, no dep on Julia
+runtime). Julia chosen because:
+  (a) The repo already references impl/tropical/TropicalDeterminant.jl,
+      and other parts of the estate (echidna's Julia ML layer, Hypatia's
+      neurosymbolic rules) standardise on Julia for math-heavy code.
+  (b) Adding new oracle families (matrix Kleene star, walks closure,
+      max-flow / min-cut duality) is faster in Julia's high-level
+      array notation than in Rust's monomorphised generics.
+  (c) Per estate `feedback_daily_driver_languages.md`, Julia is the
+      Tier-1 language for batch / data / oracle work.
+"""
+
+why-a2ml-not-json-for-oracle-input = """
+Estate-wide policy `feedback_no_json_emit_a2ml.md`: tools emit A2ML for
+data and Nickel for schemas. JSON is reserved for socket-level interop
+where the protocol is constrained externally (see BI-1: burrower serve's
+line-delimited JSON is the exception, not the rule).
+"""
+
+why-bash-sibling-of-chapel-bridge-scm = """
+Guile is not currently installed on the build host (rpm-ostree cycle
+disruption). The Scheme bridge is the canonical specification of the
+gate; the Bash sibling is the runtime detector. If Guile lands later,
+the Bash version becomes the mirror and the Scheme version becomes the
+loader.
+"""
