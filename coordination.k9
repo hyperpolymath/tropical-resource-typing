@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# coordination.k9 — capability declarations + signals
+#
+# Capabilities are declared per-repo so that downstream tools (chapel-bridge,
+# Julia oracle, Burrower attempt) can discover what is and isn't available
+# at session start, and so that absence of an OPTIONAL capability degrades
+# gracefully rather than failing the build.
+#
+# Required capabilities MUST be present for `isabelle build -d . Tropical_Semirings`
+# to succeed. Optional capabilities unlock additional proof families
+# (parallel/Chapel, sandboxed swarm runs, oracle pre-checks).
+
+capabilities:
+  cap:isabelle-2025:
+    required: true
+    detect: "isabelle version | grep -q '^Isabelle2025'"
+    purpose: "Core proof checker for Tropical_Semirings session."
+  cap:julia-1.12:
+    required: true
+    detect: "julia --version | grep -q '^julia version 1\\.\\(1[2-9]\\|[2-9][0-9]\\)'"
+    purpose: "Numerical oracle host (TropicalDeterminant.jl, oracle adversarial fuzz)."
+  cap:echidna-cli:
+    required: true
+    detect: "test -x /var/mnt/eclipse/repos/echidna/target/debug/echidna || command -v echidna"
+    purpose: "Neurosymbolic prover backend; consumed by Burrower attempt mode."
+  cap:burrower-cli:
+    required: true
+    detect: "test -x /var/mnt/eclipse/repos/proof-burrower/target/release/burrower || \
+             test -x /var/mnt/eclipse/repos/proof-burrower/target/debug/burrower"
+    purpose: "Specialist swarm router + proof-attempt dispatcher."
+  cap:chapel-2:
+    required: false
+    detect: "command -v chpl && chpl --version | grep -q ' 2\\.'"
+    purpose: "Parallel proof dispatch; only proofs/parallel-tropical/ depends on this."
+    on-absent: "tools/chapel-bridge.scm warns + skips parallel-tropical/ proofs; \
+                standard build is unaffected."
+  cap:bwrap:
+    required: false
+    detect: "command -v bwrap"
+    purpose: "Sandbox for swarm-driven echidna invocations (safe-learning mode b)."
+    on-absent: "burrower attempt --sandbox falls back to none; warn in ledger."
+  cap:podman:
+    required: false
+    detect: "command -v podman"
+    purpose: "Alternative sandbox; preferred for full container isolation."
+
+# Acceptance test for ask #2 (lazy Chapel inclusion):
+# A standard `isabelle build -d . Tropical_Semirings` with no Chapel installed
+# should still attempt all 5 in-ROOT theories. The current build has 16
+# proof-failure sites in those 5 theories, so "Chapel-independence" means
+# the failure inventory is unchanged whether Chapel is present or absent.
+acceptance:
+  no-chapel-build:
+    cmd: "isabelle build -d . Tropical_Semirings"
+    expect-no-failures-from: "chpl|chapel|with-chapel"
+    note: "Chapel must never appear in the standard build's failure paths."
+
+# Signals — used by gitbot-fleet (echidnabot, sustainabot) and the Burrower
+# socket protocol (BI-1) to route session events. These are the verbs the
+# swarm understands when consuming the Unix socket at /tmp/burrower.sock.
+signals:
+  - name: "swarm.attempt"
+    payload: "{goal: string, project_root?: path, sandbox?: enum, ledger: path}"
+    purpose: "Drive a proof attempt through the specialist playbook."
+  - name: "swarm.route"
+    payload: "{goal: string, index: path, top: int}"
+    purpose: "Route a goal through specialists, get readings + synthesis."
+  - name: "swarm.oracle"
+    payload: "{family: string, descriptor: a2ml-path}"
+    purpose: "Pre-screen a lemma statement via tools/julia-oracle.jl. \
+              Disagreement ⇒ counter-example, lemma is suspect."
+  - name: "session.intake"
+    purpose: "Adopted from proof-burrower/coordination.k9 — opens a new \
+              repo-level session; logs to STATE.a2ml."
+  - name: "session.checkpoint"
+    purpose: "Adopted from proof-burrower/coordination.k9 — milestone marker."

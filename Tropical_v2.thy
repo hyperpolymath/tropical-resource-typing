@@ -351,6 +351,8 @@ proof
        (auto simp: less_eq_tropical_def plus_tropical_def max_def)
 qed
 
+instance tropical :: ordered_comm_monoid_add ..
+
 (* ------------------------------------------------------------------ *)
 subsection \<open>7  Idempotency (Dioid)\<close>
 (* ------------------------------------------------------------------ *)
@@ -516,7 +518,10 @@ proof -
       have fin_image: "finite (h ` T)" by (rule finite_imageI[OF assms(3)])
       have ht_le_Max: "h t \<le> Max (h ` T)" by (rule Max_ge[OF fin_image ht_in_image])
       show "v \<le> Max (h ` T)"
-        using hs(2) ht(2) ht_le_Max by (simp add: order_trans)
+      proof -
+        have "v \<le> h t" using hs(2) ht(2) by simp
+        thus ?thesis using ht_le_Max by (rule order_trans)
+      qed
     qed
   qed
   ultimately show ?thesis by simp
@@ -577,7 +582,7 @@ subsection \<open>2  Primitive Operations\<close>
 
 text \<open>
   @{text tropm_add} is @{term min} (with @{text PosInf} as identity).
-  @{text tropm_mul} is ordinary @{term "+"} (with @{text "Fin' 0"} as identity).
+  @{text tropm_mul} is ordinary @{text "+"} (with @{text "Fin' 0"} as identity).
 \<close>
 
 fun tropm_add :: "tropical_min \<Rightarrow> tropical_min \<Rightarrow> tropical_min" where
@@ -877,6 +882,8 @@ proof
     by (cases a; cases b; cases c)
        (auto simp: less_eq_tropical_min_def plus_tropical_min_def min_def)
 qed
+
+instance tropical_min :: ordered_comm_monoid_add ..
 
 lemma tropm_bot_eq_one: "(bot :: tropical_min) = 1"
   by (simp add: bot_tropical_min_def one_tropical_min_def)

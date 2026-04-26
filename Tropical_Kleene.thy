@@ -88,6 +88,49 @@ text \<open>
   the fact that tropical sums dominate individual summands.
 \<close>
 
+(* member_le_sum / sum_le_const are forward-needed by trop_mat_pow_le_star
+   and other proofs in this section.  Hoisted here so Isabelle 2025-1
+   accepts the references (sequential parsing forbids forward refs). *)
+
+lemma member_le_sum:
+  fixes f :: "nat \<Rightarrow> tropical"
+  assumes "finite S" "\<forall> x \<in> S. (0 :: tropical) \<le> f x" "m \<in> S"
+  shows "f m \<le> (\<Sum> x \<in> S. f x)"
+proof -
+  have decomp: "(\<Sum> x \<in> S. f x) = f m + (\<Sum> x \<in> S - {m}. f x)"
+    using assms(1,3) by (subst sum.remove) auto
+  have "f m + (\<Sum> x \<in> S. f x) = f m + (f m + (\<Sum> x \<in> S - {m}. f x))"
+    using decomp by simp
+  also have "\<dots> = (f m + f m) + (\<Sum> x \<in> S - {m}. f x)"
+    by (simp add: add.assoc)
+  also have "\<dots> = f m + (\<Sum> x \<in> S - {m}. f x)"
+    by (simp add: tropical_add_idem)
+  also have "\<dots> = (\<Sum> x \<in> S. f x)" using decomp by simp
+  finally have "f m + (\<Sum> x \<in> S. f x) = (\<Sum> x \<in> S. f x)" .
+  thus ?thesis by (simp add: trop_add_le_iff)
+qed
+
+lemma sum_le_const:
+  fixes f :: "nat \<Rightarrow> tropical"
+  assumes hbound: "\<And> x. x \<in> S \<Longrightarrow> f x \<le> c"
+  assumes hfin: "finite S"
+  shows "(\<Sum> x \<in> S. f x) \<le> c"
+  using hfin hbound
+proof (induction S rule: finite_induct)
+  case empty
+  show ?case by (simp add: zero_tropical_def bot_tropical_def trop_bot_eq_zero)
+next
+  case (insert x F)
+  have "(\<Sum> y \<in> insert x F. f y) = f x + (\<Sum> y \<in> F. f y)"
+    by (simp add: insert.hyps)
+  also have "\<dots> \<le> c + c"
+    by (rule add_mono)
+       (use insert.prems insert.IH in auto)
+  also have "\<dots> = c"
+    by (simp add: tropical_add_idem)
+  finally show ?case .
+qed
+
 lemma trop_mat_pow_le_star:
   assumes "i < n" "j < n" "m \<le> n - 1"
   shows "trop_mat_pow n A m i j \<le> trop_mat_star n A i j"
@@ -169,6 +212,63 @@ text \<open>
     \<^item> The tropical join of all these is @{text "A* \<le> I \<oplus> A \<cdot> A*"}.
 \<close>
 
+(* trop_mat_pow_n_le_star hoisted above trop_mat_star_equation
+   so the (\<le>) direction can use it without forward-reference. *)
+
+lemma trop_mat_pow_n_le_star:
+  assumes "i < n" "j < n" "no_pos_cycle n A" "0 < n"
+  shows "trop_mat_pow n A n i j \<le> trop_mat_star n A i j"
+proof -
+  have walks_eq: "trop_mat_pow n A n i j = trop_walks_sum A (walks n n i j)"
+    using assms(1,2) by (rule trop_mat_pow_eq_sum_walks)
+  have star_eq: "trop_mat_star n A i j = trop_walks_sum A (walks_le n (n-1) i j)"
+    using assms(1,2) by (rule trop_mat_star_eq_sum_walks_le)
+  have dom: "\<forall> w \<in> walks n n i j. \<exists> w' \<in> walks_le n (n-1) i j.
+               path_weight A w \<le> path_weight A w'"
+  proof
+    fix w assume hw: "w \<in> walks n n i j"
+    have len_w: "length w = Suc n" using hw unfolding walks_def by simp
+    have set_w: "set w \<subseteq> {..<n}" using hw unfolding walks_def by simp
+    have hnd: "\<not> distinct w"
+    proof
+      assume hd: "distinct w"
+      have "card (set w) = length w" using distinct_card[OF hd] .
+      also have "\<dots> = Suc n" using len_w .
+      finally have "card (set w) = Suc n" .
+      moreover have "card (set w) \<le> n"
+        using card_mono[OF finite_lessThan set_w] by simp
+      ultimately show False by simp
+    qed
+    obtain w' where hge: "path_weight A w \<le> path_weight A w'"
+               and hw'_simple: "w' \<in> simple_walks n i j"
+      using cycle_shortcutting[OF assms(3) hw] by blast
+    from hw'_simple obtain m where hw'_m: "w' \<in> walks n m i j"
+      and hw'_dist: "distinct w'"
+      unfolding simple_walks_def by auto
+    have hne': "w' \<noteq> []" using hw'_m unfolding walks_def by auto
+    have hset:  "set w' \<subseteq> {..<n}" using walk_vertices_bounded[OF hw'_m] .
+    have hlen_n: "length w' \<le> n"
+    proof -
+      have "length w' = card (set w')" using distinct_card[OF hw'_dist, symmetric] .
+      also have "card (set w') \<le> card {..<n}"
+        using card_mono[OF finite_lessThan hset] .
+      finally show ?thesis by simp
+    qed
+    have hw'_in: "w' \<in> walks_le n (n-1) i j"
+      unfolding walks_le_def
+    proof (rule UN_I[of "length w' - 1"])
+      show "length w' - 1 \<in> {..n-1}" using hlen_n hne' by (cases w') auto
+      have hm: "m = length w' - 1" using hw'_m unfolding walks_def by auto
+      show "w' \<in> walks n (length w' - 1) i j" using hw'_m hm by simp
+    qed
+    show "\<exists> w' \<in> walks_le n (n-1) i j. path_weight A w \<le> path_weight A w'"
+      using hge hw'_in by auto
+  qed
+  have "trop_walks_sum A (walks n n i j) \<le> trop_walks_sum A (walks_le n (n-1) i j)"
+    using trop_walks_sum_dominated[OF finite_walks finite_walks_le dom] .
+  thus ?thesis using walks_eq star_eq by simp
+qed
+
 theorem trop_mat_star_equation:
   assumes "i < n" "j < n" "0 < n" "no_pos_cycle n A"
   shows "trop_mat_star n A i j =
@@ -245,13 +345,33 @@ proof (rule antisym)
           finally show ?thesis .
         qed
         show ?thesis
-          using am_le Suc
-          by (simp add: trop_mat_add_def le_add_same_cancel2)
+        proof -
+          let ?I = "trop_mat_id n i j"
+          let ?A = "trop_mat_pow n A (Suc m') i j"
+          let ?S = "trop_mat_mul n A (trop_mat_star n A) i j"
+          have hle: "?A \<le> ?S" using am_le by simp
+          have h1: "?A + ?S = ?S" using hle by (simp add: trop_add_le_iff)
+          have step: "?A + (?I + ?S) = ?I + ?S"
+          proof -
+            have "?A + (?I + ?S) = ?I + (?A + ?S)" by (simp add: ac_simps)
+            also have "\<dots> = ?I + ?S" using h1 by simp
+            finally show ?thesis .
+          qed
+          have hAle: "?A \<le> ?I + ?S" using step by (simp add: trop_add_le_iff)
+          show ?thesis using hAle Suc by (simp add: trop_mat_add_def)
+        qed
       qed
     qed
     show ?thesis
       unfolding star_sum
-      by (rule sum_le_const) (use each_le in auto) simp
+    proof (rule sum_le_const)
+      fix m assume "m \<in> {..n-1}"
+      thus "trop_mat_pow n A m i j \<le>
+            trop_mat_add n (trop_mat_id n) (trop_mat_mul n A (trop_mat_star n A)) i j"
+        using each_le by auto
+    next
+      show "finite {..n-1}" by simp
+    qed
   qed
 next
   (* (\<ge>) direction: I \<oplus> A \<cdot> A* \<le> A* *)
@@ -269,8 +389,17 @@ next
                         (\<Sum> m \<in> {..n-1}. trop_mat_pow n A (Suc m) i j)"
       proof -
         have "trop_mat_mul n A (trop_mat_star n A) i j
-              = (\<Sum> l \<in> {..<n}. A i l * (\<Sum> m \<in> {..n-1}. trop_mat_pow n A m l j))"
-          by (simp add: trop_mat_mul_def star_sum)
+              = (\<Sum> l \<in> {..<n}. A i l * trop_mat_star n A l j)"
+          by (simp add: trop_mat_mul_def)
+        also have "\<dots> = (\<Sum> l \<in> {..<n}. A i l * (\<Sum> m \<in> {..n-1}. trop_mat_pow n A m l j))"
+        proof (rule sum.cong[OF refl])
+          fix l assume "l \<in> {..<n}"
+          hence hl: "l < n" by simp
+          have "trop_mat_star n A l j = (\<Sum> m \<in> {..n-1}. trop_mat_pow n A m l j)"
+            using trop_mat_star_eq_sum_pow[OF hl assms(2)] .
+          thus "A i l * trop_mat_star n A l j =
+                A i l * (\<Sum> m \<in> {..n-1}. trop_mat_pow n A m l j)" by simp
+        qed
         also have "\<dots> = (\<Sum> l \<in> {..<n}. \<Sum> m \<in> {..n-1}. A i l * trop_mat_pow n A m l j)"
           by (rule sum.cong) (simp_all add: sum_distrib_left)
         also have "\<dots> = (\<Sum> m \<in> {..n-1}. \<Sum> l \<in> {..<n}. A i l * trop_mat_pow n A m l j)"
@@ -285,7 +414,14 @@ next
           also have "\<dots> = (\<Sum> l \<in> {..<n}. trop_mat_pow n A 1 i l * trop_mat_pow n A m l j)"
             by (simp add: trop_mat_mul_def)
           also have "\<dots> = (\<Sum> l \<in> {..<n}. A i l * trop_mat_pow n A m l j)"
-            by (rule sum.cong, simp) (simp add: trop_mat_pow_one assms(1))
+          proof (rule sum.cong[OF refl])
+            fix l assume "l \<in> {..<n}"
+            hence hl: "l < n" by simp
+            have "trop_mat_pow n A 1 i l = A i l"
+              using trop_mat_pow_one[OF assms(1) hl] .
+            thus "trop_mat_pow n A 1 i l * trop_mat_pow n A m l j =
+                  A i l * trop_mat_pow n A m l j" by simp
+          qed
           finally show "(\<Sum> l \<in> {..<n}. A i l * trop_mat_pow n A m l j) =
                         trop_mat_pow n A (Suc m) i j" by simp
         qed
@@ -300,11 +436,11 @@ next
         show "trop_mat_pow n A (Suc m) i j \<le> trop_mat_star n A i j"
         proof (cases "Suc m \<le> n - 1")
           case True
-          thus ?thesis using assms(1,2) by (rule trop_mat_pow_le_star)
+          show ?thesis using trop_mat_pow_le_star[OF assms(1) assms(2) True] .
         next
           case False
           (* m = n-1 so Suc m = n, use trop_mat_pow_n_le_star *)
-          have "Suc m = n" using hm False by simp
+          have "Suc m = n" using hm False assms(3) by simp
           thus ?thesis
             by (simp add: trop_mat_pow_n_le_star[OF assms(1,2,4,3)])
         qed
@@ -312,7 +448,15 @@ next
       finally show ?thesis .
     qed
     show ?thesis
-      by (simp add: trop_mat_add_def add_le_add[OF id_le mul_le] tropical_add_idem)
+    proof -
+      have "trop_mat_id n i j + trop_mat_mul n A (trop_mat_star n A) i j
+            \<le> trop_mat_star n A i j + trop_mat_star n A i j"
+        using add_mono[OF id_le mul_le] .
+      also have "\<dots> = trop_mat_star n A i j" by (simp add: tropical_add_idem)
+      finally have "trop_mat_id n i j + trop_mat_mul n A (trop_mat_star n A) i j
+            \<le> trop_mat_star n A i j" .
+      thus ?thesis by (simp add: trop_mat_add_def)
+    qed
   qed
 qed
 
@@ -363,75 +507,8 @@ lemma trop_mat_star_prefixpoint:
 subsection \<open>10  A^n \<le> A* Under No-Pos-Cycle\<close>
 (* ------------------------------------------------------------------ *)
 
-text \<open>
-  A key lemma for both the star equation and the least-prefixpoint theorem:
-  under no_pos_cycle, @{text "A^n i j \<le> A* i j"}.
-
-  The argument uses the pigeonhole principle: any walk of length @{text n}
-  in an @{text n}-vertex graph must repeat a vertex (since it visits
-  @{text "n+1"} vertices from a set of size @{text n}).
-  By @{text cycle_shortcutting}, it is dominated by a simple walk of
-  length @{text "\<le> n-1"}, which contributes to @{text A*}.
-\<close>
-
-lemma trop_mat_pow_n_le_star:
-  assumes "i < n" "j < n" "no_pos_cycle n A" "0 < n"
-  shows "trop_mat_pow n A n i j \<le> trop_mat_star n A i j"
-proof -
-  have walks_eq: "trop_mat_pow n A n i j = trop_walks_sum A (walks n n i j)"
-    using assms(1,2) by (rule trop_mat_pow_eq_sum_walks)
-  have star_eq: "trop_mat_star n A i j = trop_walks_sum A (walks_le n (n-1) i j)"
-    using assms(1,2) by (rule trop_mat_star_eq_sum_walks_le)
-  (* It suffices to show each walk w in walks n n i j is dominated by
-     some walk in walks_le n (n-1) i j. *)
-  have dom: "\<forall> w \<in> walks n n i j. \<exists> w' \<in> walks_le n (n-1) i j.
-               path_weight A w \<le> path_weight A w'"
-  proof
-    fix w assume hw: "w \<in> walks n n i j"
-    have len_w: "length w = Suc n" using hw unfolding walks_def by simp
-    have set_w: "set w \<subseteq> {..<n}" using hw unfolding walks_def by simp
-    have hnd: "\<not> distinct w"
-    proof
-      assume hd: "distinct w"
-      have "card (set w) = length w" using distinct_card[OF hd] .
-      also have "\<dots> = Suc n" using len_w .
-      finally have "card (set w) = Suc n" .
-      moreover have "card (set w) \<le> n"
-        using card_mono[OF finite_lessThan set_w] by simp
-      ultimately show False by simp
-    qed
-    (* cycle_shortcutting dominates w by some w' \<in> simple_walks n i j;
-       simple_walks n i j \<subseteq> walks_le n (n-1) i j (distinct list with set
-       \<subseteq> {..<n} has length \<le> n, hence length-1 \<le> n-1). *)
-    obtain w' where hge: "path_weight A w \<le> path_weight A w'"
-               and hw'_simple: "w' \<in> simple_walks n i j"
-      using cycle_shortcutting[OF assms(3) hw] by blast
-    from hw'_simple obtain m where hw'_m: "w' \<in> walks n m i j"
-      and hw'_dist: "distinct w'"
-      unfolding simple_walks_def by auto
-    have hne': "w' \<noteq> []" using hw'_m unfolding walks_def by auto
-    have hset:  "set w' \<subseteq> {..<n}" using walk_vertices_bounded[OF hw'_m] .
-    have hlen_n: "length w' \<le> n"
-    proof -
-      have "length w' = card (set w')" using distinct_card[OF hw'_dist, symmetric] .
-      also have "card (set w') \<le> card {..<n}"
-        using card_mono[OF finite_lessThan hset] .
-      finally show ?thesis by simp
-    qed
-    have hw'_in: "w' \<in> walks_le n (n-1) i j"
-      unfolding walks_le_def
-    proof (rule UN_I[of "length w' - 1"])
-      show "length w' - 1 \<in> {..n-1}" using hlen_n hne' by (cases w') auto
-      have hm: "m = length w' - 1" using hw'_m unfolding walks_def by auto
-      show "w' \<in> walks n (length w' - 1) i j" using hw'_m hm by simp
-    qed
-    show "\<exists> w' \<in> walks_le n (n-1) i j. path_weight A w \<le> path_weight A w'"
-      using hge hw'_in by auto
-  qed
-  have "trop_walks_sum A (walks n n i j) \<le> trop_walks_sum A (walks_le n (n-1) i j)"
-    using trop_walks_sum_dominated[OF finite_walks finite_walks_le dom] .
-  thus ?thesis using walks_eq star_eq by simp
-qed
+(* trop_mat_pow_n_le_star moved earlier (above trop_mat_star_equation)
+   to avoid forward-reference rejected by Isabelle 2025-1. *)
 
 (* ------------------------------------------------------------------ *)
 subsection \<open>11  Least Prefixpoint\<close>
@@ -472,8 +549,11 @@ proof -
                   = trop_mat_id n i' j' + trop_mat_mul n A X i' j'"
         by (simp add: add.assoc[symmetric] tropical_add_idem)
       have "trop_mat_id n i' j' \<le>
+            trop_mat_id n i' j' + trop_mat_mul n A X i' j'"
+        using step by (simp add: trop_add_le_iff)
+      hence "trop_mat_id n i' j' \<le>
             trop_mat_add n (trop_mat_id n) (trop_mat_mul n A X) i' j'"
-        unfolding trop_mat_add_def using step trop_add_le_iff by metis
+        by (simp add: trop_mat_add_def)
       also have "\<dots> \<le> X i' j'" using assms(1) \<open>i' < n\<close> \<open>j' < n\<close> by auto
       finally show "trop_mat_pow n A 0 i' j' \<le> X i' j'" by simp
     qed
@@ -524,9 +604,13 @@ proof -
           let ?a = "trop_mat_mul n A X i' j'"
           let ?b = "trop_mat_id n i' j'"
           have step: "?a + (?b + ?a) = ?b + ?a"
-            by (simp add: add.assoc[symmetric] add.commute tropical_add_idem)
-          show ?thesis
-            unfolding trop_mat_add_def using step trop_add_le_iff by metis
+          proof -
+            have "?a + (?b + ?a) = ?b + (?a + ?a)" by (simp add: ac_simps)
+            also have "\<dots> = ?b + ?a" by (simp add: tropical_add_idem)
+            finally show ?thesis .
+          qed
+          have "?a \<le> ?b + ?a" using step by (simp add: trop_add_le_iff)
+          thus ?thesis by (simp add: trop_mat_add_def)
         qed
         also have "\<dots> \<le> X i' j'" using assms(1) hi' hj' by auto
         finally show ?thesis .
@@ -556,53 +640,8 @@ text \<open>
   These lemmas are used in the proofs above and collected here for clarity.
 \<close>
 
-(* member_le_sum: every member of a finite tropical sum is bounded by
-   the sum (since sum = max, and any element \<le> max). The original
-   definition was circular — `by (rule member_le_sum)` calls itself.
-   Proven here directly via sum.remove + add idempotency. *)
-lemma member_le_sum:
-  fixes f :: "nat \<Rightarrow> tropical"
-  assumes "finite S" "\<forall> x \<in> S. (0 :: tropical) \<le> f x" "m \<in> S"
-  shows "f m \<le> (\<Sum> x \<in> S. f x)"
-proof -
-  have decomp: "(\<Sum> x \<in> S. f x) = f m + (\<Sum> x \<in> S - {m}. f x)"
-    using assms(1,3) by (subst sum.remove) auto
-  have "f m + (\<Sum> x \<in> S. f x) = f m + (f m + (\<Sum> x \<in> S - {m}. f x))"
-    using decomp by simp
-  also have "\<dots> = (f m + f m) + (\<Sum> x \<in> S - {m}. f x)"
-    by (simp add: add.assoc)
-  also have "\<dots> = f m + (\<Sum> x \<in> S - {m}. f x)"
-    by (simp add: tropical_add_idem)
-  also have "\<dots> = (\<Sum> x \<in> S. f x)" using decomp by simp
-  finally have "f m + (\<Sum> x \<in> S. f x) = (\<Sum> x \<in> S. f x)" .
-  thus ?thesis by (simp add: trop_add_le_iff)
-qed
-
-text \<open>
-  Tropical sum bounded by constant: if every summand is @{text "\<le> c"},
-  then so is the sum (since tropical sum is idempotent join, not arithmetic sum).
-\<close>
-
-lemma sum_le_const:
-  fixes f :: "nat \<Rightarrow> tropical"
-  assumes hbound: "\<And> x. x \<in> S \<Longrightarrow> f x \<le> c"
-  assumes hfin: "finite S"
-  shows "(\<Sum> x \<in> S. f x) \<le> c"
-  using hfin hbound
-proof (induction S rule: finite_induct)
-  case empty
-  show ?case by (simp add: zero_tropical_def bot_tropical_def trop_bot_eq_zero)
-next
-  case (insert x F)
-  have "(\<Sum> y \<in> insert x F. f y) = f x + (\<Sum> y \<in> F. f y)"
-    by (simp add: insert.hyps)
-  also have "\<dots> \<le> c + c"
-    by (rule add_mono)
-       (use insert.prems insert.IH in auto)
-  also have "\<dots> = c"
-    by (simp add: tropical_add_idem)
-  finally show ?case .
-qed
+(* member_le_sum / sum_le_const moved earlier in file (before
+   trop_mat_pow_le_star) so Isabelle 2025-1 sees them at first use. *)
 
 (* ================================================================== *)
 section \<open>Part VII  Summary\<close>

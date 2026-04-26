@@ -131,24 +131,19 @@ next
   proof (cases rest)
     case Nil
     (* w1 = [u]; w1 @ tl w2 = u # tl w2 = w2  (since hd w2 = u) *)
-    then have "u # tl w2 = w2"
-      using Cons.prems(3) Cons.prems(2)
-      by (metis list.collapse hd_Cons_tl)
-    also have "path_weight A [u] = 1"
-      by simp
-    finally show ?thesis
-      using Cons.prems(2) \<open>u # tl w2 = w2\<close>
-      by simp
+    have h1: "u # tl w2 = w2"
+      using Cons.prems(2,3) local.Nil by (cases w2) auto
+    show ?thesis using h1 Cons.prems(2) local.Nil by simp
   next
     case (Cons v rest2)
     (* w1 = u # v # rest2 *)
     have step: "path_weight A ((u # v # rest2) @ tl w2)
                 = A u v * path_weight A ((v # rest2) @ tl w2)"
       by simp
-    have ih_prems: "v # rest2 \<noteq> []" "w2 \<noteq> []" "last (v # rest2) = hd w2"
+    have ih_prems: "rest \<noteq> []" "w2 \<noteq> []" "last rest = hd w2"
       using Cons.prems(2,3) local.Cons by simp_all
-    have ih: "path_weight A ((v # rest2) @ tl w2)
-              = path_weight A (v # rest2) * path_weight A w2"
+    have ih: "path_weight A (rest @ tl w2)
+              = path_weight A rest * path_weight A w2"
       using Cons.IH[OF ih_prems] .
     show ?thesis
       using step ih local.Cons
@@ -209,8 +204,10 @@ next
     (* first-element connectivity: last w = hd (walk_concat ws') *)
     have conn_first: "last w = hd (walk_concat ws')"
     proof -
-      have "last ((w # ws') ! 0) = hd ((w # ws') ! 1)"
-        using Cons.prems(3) hws'_ne by (simp add: local.Cons)
+      have hk0: "(0 :: nat) < length (w # ws') - 1"
+        using hws'_ne local.Cons by simp
+      have "last ((w # ws') ! 0) = hd ((w # ws') ! Suc 0)"
+        using Cons.prems(3) hk0 by blast
       hence step: "last w = hd w'" by (simp add: local.Cons)
       (* hd (walk_concat ws') = hd w' because ws' = w' # ws'' and w' ≠ [] *)
       have "hd (walk_concat ws') = hd w'"
@@ -223,7 +220,7 @@ next
       using Cons.IH[OF hws'_ne hws'_nonempty conn_ws'] .
     (* walk_concat (w # ws') = w @ tl (walk_concat ws') *)
     have wcat_eq: "walk_concat (w # ws') = w @ tl (walk_concat ws')"
-      using hws'_ne by (simp add: walk_concat.simps)
+      using hws'_ne by (cases ws') (auto simp: walk_concat.simps)
     (* Combine via path_weight_join *)
     have "path_weight A (walk_concat (w # ws'))
           = path_weight A w * path_weight A (walk_concat ws')"
@@ -248,8 +245,17 @@ text \<open>
 
 lemma trop_mat_close_close:
   "trop_mat_close n (trop_mat_close n A) = trop_mat_close n A"
-  unfolding trop_mat_close_def trop_mat_id_def trop_mat_add_def
-  by (auto intro: ext simp: tropical_add_idem add.commute add.assoc)
+proof (intro ext)
+  fix i j
+  let ?I = "trop_mat_id n i j"
+  have "trop_mat_close n (trop_mat_close n A) i j
+        = A i j + ?I + ?I"
+    unfolding trop_mat_close_def by simp
+  also have "\<dots> = A i j + (?I + ?I)" by (simp add: add.assoc)
+  also have "\<dots> = A i j + ?I" by (simp add: tropical_add_idem)
+  also have "\<dots> = trop_mat_close n A i j" unfolding trop_mat_close_def by simp
+  finally show "trop_mat_close n (trop_mat_close n A) i j = trop_mat_close n A i j" .
+qed
 
 theorem trop_mat_star_close_eq:
   "trop_mat_star n (trop_mat_close n A) = trop_mat_star n A"
@@ -277,7 +283,7 @@ proof -
   have "Suc k = card (set w)"
     using \<open>distinct w\<close> distinct_card len by metis
   also have "\<dots> \<le> card {..<n}"
-    using sub by (rule card_mono) simp
+    using card_mono[OF finite_lessThan sub] .
   also have "\<dots> = n" by simp
   finally show "k \<le> n - 1" by simp
 qed
@@ -364,7 +370,7 @@ next
       then show ?thesis by auto
     next
       case False
-      have hle: "f x \<le> f w_ih" using linorder_not_le[THEN iffD2, OF False] .
+      have hle: "f x \<le> f w_ih" using False by (meson linorder_not_le order.strict_implies_order)
       have "f x + f w_ih = f w_ih"
         using trop_add_le_iff hle by blast
       hence "(\<Sum> y \<in> insert x F. f y) = f w_ih"
@@ -611,48 +617,43 @@ next
   finally show ?case .
 qed
 
+lemma has_positive_cycle_star_pointwise:
+  assumes hnpc: "no_pos_cycle n A"
+  assumes hi: "i < n"
+  assumes hw: "w \<in> walks n k i i"
+  shows "path_weight (trop_mat_star n A) w \<le> (1 :: tropical)"
+proof -
+  have step1: "path_weight (trop_mat_star n A) w \<le> trop_mat_star n A i i"
+    using path_weight_star_le[OF hnpc hi hi hw] .
+  have step2: "trop_mat_star n A i i \<le> (1 :: tropical)"
+  proof -
+    have star_eq: "trop_mat_star n A i i = trop_walks_sum A (walks_le n (n-1) i i)"
+      by (rule trop_mat_star_eq_sum_walks_le[OF hi hi])
+    have dom: "\<forall> w' \<in> walks_le n (n-1) i i.
+               \<exists> w'' \<in> {[i]}. path_weight A w' \<le> path_weight A w''"
+    proof (intro ballI)
+      fix w' assume hw': "w' \<in> walks_le n (n-1) i i"
+      then obtain k' where hw'_base: "w' \<in> walks n k' i i"
+        unfolding walks_le_def by auto
+      have "path_weight A w' \<le> (1 :: tropical)"
+        using no_pos_cycle_closed_walk_le[OF hnpc hw'_base hi] .
+      thus "\<exists> w'' \<in> {[i]}. path_weight A w' \<le> path_weight A w''" by auto
+    qed
+    have "trop_walks_sum A (walks_le n (n-1) i i) \<le> trop_walks_sum A {[i]}"
+      using trop_walks_sum_dominated[OF finite_walks_le _ dom] by simp
+    also have "trop_walks_sum A {[i]} = (1 :: tropical)"
+      unfolding trop_walks_sum_def by simp
+    finally show ?thesis using star_eq by simp
+  qed
+  show ?thesis using order_trans[OF step1 step2] .
+qed
+
 theorem has_positive_cycle_star:
   assumes "no_pos_cycle n A"
   assumes "0 < n"
   shows "no_pos_cycle n (trop_mat_star n A)"
-  unfolding no_pos_cycle_def
-proof clarify
-  fix i k w assume hi: "i < n" and hw: "w \<in> walks n k i i"
-  show "path_weight (trop_mat_star n A) w \<le> (1 :: tropical)"
-  proof -
-    (* Step 1: path_weight (A*) w \<le> A* i i,
-       using path_weight_star_le on the walk w \<in> walks n k i i. *)
-    have step1: "path_weight (trop_mat_star n A) w \<le> trop_mat_star n A i i"
-      using path_weight_star_le[OF assms(1) hi hi hw] .
-    (* Step 2: A* i i \<le> 1.
-       Every closed walk at i under A has weight \<le> 1 (no_pos_cycle).
-       So A* i i = trop_walks_sum A (walks_le n (n-1) i i) is dominated
-       by the trivial walk [i] with weight 1. *)
-    have step2: "trop_mat_star n A i i \<le> (1 :: tropical)"
-    proof -
-      have star_eq: "trop_mat_star n A i i = trop_walks_sum A (walks_le n (n-1) i i)"
-        by (rule trop_mat_star_eq_sum_walks_le[OF hi hi])
-      have dom: "\<forall> w' \<in> walks_le n (n-1) i i.
-                 \<exists> w'' \<in> {[i]}. path_weight A w' \<le> path_weight A w''"
-      proof (intro ballI)
-        fix w' assume hw': "w' \<in> walks_le n (n-1) i i"
-        then obtain k' where hw'_base: "w' \<in> walks n k' i i"
-          unfolding walks_le_def by auto
-        have "path_weight A w' \<le> (1 :: tropical)"
-          using no_pos_cycle_closed_walk_le[OF assms(1) hw'_base hi] .
-        thus "\<exists> w'' \<in> {[i]}. path_weight A w' \<le> path_weight A w''"
-          by auto
-      qed
-      have "trop_walks_sum A (walks_le n (n-1) i i) \<le> trop_walks_sum A {[i]}"
-        using trop_walks_sum_dominated[OF finite_walks_le _ dom]
-        by simp
-      also have "trop_walks_sum A {[i]} = (1 :: tropical)"
-        unfolding trop_walks_sum_def by simp
-      finally show ?thesis using star_eq by simp
-    qed
-    show ?thesis using order_trans[OF step1 step2] .
-  qed
-qed
+  using has_positive_cycle_star_pointwise[OF assms(1)]
+  unfolding no_pos_cycle_def by blast
 
 (* ------------------------------------------------------------------ *)
 subsection \<open>12  Star is Idempotent: (A*)* = A*\<close>
@@ -673,7 +674,7 @@ theorem trop_mat_star_idem:
   assumes "i < n" "j < n"
   shows "trop_mat_star n (trop_mat_star n A) i j = trop_mat_star n A i j"
 proof (rule antisym)
-  (* (\<le>) direction: (A*)* \<le> A* *)
+  \<comment> \<open>\<open>\<le>\<close>: \<open>(A*)*\<close> \<open>\<le>\<close> \<open>A*\<close>\<close>
   show "trop_mat_star n (trop_mat_star n A) i j \<le> trop_mat_star n A i j"
   proof -
     have star_star_eq:

@@ -4,8 +4,8 @@
 # ECOSYSTEM.a2ml — tropical-resource-typing ecosystem position
 
 [metadata]
-version = "0.1.0"
-last-updated = "2026-04-11"
+version = "0.2.0"
+last-updated = "2026-04-26"
 
 [project]
 name = "tropical-resource-typing"
@@ -54,3 +54,29 @@ docs = [
 pdf = [
   { file = "Tropical Resource Typing For Protocols.pdf", description = "Research paper (draft)" },
 ]
+
+[verified-toolchains]
+# Recorded 2026-04-26 during the swarm-dogfood session, verified live
+# (no prior-session memory trusted). Future sessions should re-verify
+# rather than assume; tool versions drift.
+verified-on = "2026-04-26"
+isabelle = { version = "Isabelle2025-1", path = "/usr/local/bin/isabelle", required = true, status = "present" }
+julia    = { version = "1.12.5",         path = "/home/hyper/.opsm/shims/julia", required = true, status = "present" }
+echidna  = { binary = "/var/mnt/eclipse/repos/echidna/target/debug/echidna", required = true, status = "present" }
+chapel   = { version = "n/a", path = "n/a", required = false, status = "absent",
+             reason = "guix install chapel returns 'unknown package' (Guix does not package Chapel as of 2026-04-26); Fedora dnf only carries python3-sphinxcontrib-chapeldomain (unrelated). Building from source deferred. The repo is now lazy-gated via tools/chapel-bridge.scm + coordination.k9 'cap:chapel-2: optional' so absence does not block the standard build path." }
+bwrap    = { version = "see /usr/bin/bwrap --version", path = "/usr/bin/bwrap", required = false, status = "present",
+             notes = "Used by --sandbox bwrap path through echidna's executor::sandbox layer. Discovered installed; not yet exercised on /var/mnt/eclipse symlinked mount — risk noted in plan." }
+podman   = { version = "see /usr/bin/podman --version", path = "/usr/bin/podman", required = false, status = "present",
+             notes = "Alternative sandbox; not the default this session." }
+guile    = { version = "n/a (not yet verified)", required = false, status = "needed-by chapel-bridge.scm",
+             notes = "tools/chapel-bridge.scm is Guile-style fallback loader; in the chapel-absent path it is a no-op stub document, so Guile is not strictly required at runtime today." }
+
+[swarm-integration]
+# State of the proof-burrower / echidna swarm wiring as of this session.
+proof-burrower-repo = "github:hyperpolymath/proof-burrower (private)"
+ei-1-status = "implemented 2026-04-26 (--project-root flag on echidna prove)"
+bi-1-status = "implemented 2026-04-26 (burrower serve --socket Unix endpoint)"
+safe-learning-modes = ["sandboxed-execution (b)", "adversarial-test-generation (c)"]
+sandbox-modes-available = ["bwrap", "podman", "none"]
+oracle-tool = "tools/julia-oracle.jl (a2ml descriptor input, NOT JSON per estate policy)"

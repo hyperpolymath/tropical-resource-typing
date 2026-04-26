@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Adversarial fuzz fixture (safe-learning c). The fuzz block tells the
+# oracle to generate `trials` random 3×3 matrices in the value range
+# and check that det_min equals the independently-derived permutation
+# minimum. This is meant to FAIL only when the determinant module is
+# itself broken; an "oracle: fuzz-clean" verdict means the oracle is
+# self-consistent and ready to ground real lemma claims.
+
+[oracle-fuzz]
+family       = "tropical-determinant-min"
+matrix-size  = 3
+value-range  = [0, 9]
+trials       = 50
+seed         = 51966

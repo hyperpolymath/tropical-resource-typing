@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Adversarial fixture: deliberately-wrong claim that det_min([[1,2],[3,4]]) == 7.
+# True value is 5; this should yield "oracle: disagree (computed=5, expected=7)".
+# Used by the swarm to verify the oracle catches bad lemma statements
+# BEFORE Isabelle is invoked (safe-learning c).
+
+[oracle-input]
+family   = "tropical-determinant-min"
+matrix   = [[1, 2], [3, 4]]
+expected = 7
