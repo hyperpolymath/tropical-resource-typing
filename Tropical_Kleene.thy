@@ -11,12 +11,12 @@ text \<open>
 
   \<^item> @{text trop_mat_star_eq_sum_pow}: star = @{text "\<oplus>_{m \<le> n-1} A^m"}.
   \<^item> @{text trop_mat_star_eq_sum_walks_le}: star = tropical sum over
-    walks of at most @{text n-1} edges.
+    walks of at most @{text "n-1"} edges.
   \<^item> @{text trop_mat_star_equation}: @{text "A* = I \<oplus> A \<cdot> A*"}
     (the star equation / Bellman equation).
   \<^item> @{text trop_mat_star_eq_max_simple}: under no_pos_cycle,
     @{text "A*(i,j)"} equals the max-weight simple-path weight.
-  \<^item> @{text trop_mat_star_least_prefixpoint}: @{text A*} is the least
+  \<^item> @{text trop_mat_star_least_prefixpoint}: @{text "A*"} is the least
     solution to @{text "X \<ge> I \<oplus> A \<cdot> X"} in the pointwise order.
 
   Verified against Isabelle 2025-1.
@@ -37,7 +37,7 @@ text \<open>
     @{text "A* = (I \<oplus> A)^{n-1}"}
 
   This is the standard finite-dimensional Kleene star for tropical matrices:
-  it captures all simple paths (of which there are at most @{text n-1} edges),
+  it captures all simple paths (of which there are at most @{text "n-1"} edges),
   and under no positive cycles equals the all-pairs max-weight path matrix.
 \<close>
 
@@ -111,7 +111,7 @@ proof -
 qed
 
 lemma sum_le_const:
-  fixes f :: "nat \<Rightarrow> tropical"
+  fixes f :: "'a \<Rightarrow> tropical"
   assumes hbound: "\<And> x. x \<in> S \<Longrightarrow> f x \<le> c"
   assumes hfin: "finite S"
   shows "(\<Sum> x \<in> S. f x) \<le> c"
@@ -202,8 +202,8 @@ text \<open>
   (\<ge>): We show @{text "I \<oplus> A \<cdot> A* \<le> A*"}.
     \<^item> @{text "I \<le> A*"} by @{text trop_mat_star_ge_id}.
     \<^item> @{text "A \<cdot> A* \<le> A*"}: use @{text trop_mat_star_eq_sum_pow}.
-      @{text "(A \<cdot> A*)_{ij} = \<Sum>_{m \<le> n-1} (A \<cdot> A^m)_{ij} = \<Sum>_{m \<le> n-1} A^{m+1}_{ij}}.
-      This is a re-indexed sum @{text "\<Sum>_{m \in {1..n}} A^m_{ij} \<le> A*_{ij}}
+      @{text "(A . A*)_{ij} = SUM_{m <= n-1} (A . A^m)_{ij} = SUM_{m <= n-1} A^{m+1}_{ij}"}.
+      This is a re-indexed sum @{text "SUM_{m in {1..n}} A^m_{ij} <= A*_{ij}"}
       because @{text "A^n_{ij} \<le> A*_{ij}"} by the pigeonhole argument.
 
   (\<le>): We show @{text "A* \<le> I \<oplus> A \<cdot> A*"}.
@@ -490,7 +490,7 @@ subsection \<open>9  A* is a Prefixpoint\<close>
 (* ------------------------------------------------------------------ *)
 
 text \<open>
-  @{text A*} satisfies the prefixpoint inequality @{text "I \<oplus> A \<cdot> A* \<le> A*"}
+  @{text "A*"} satisfies the prefixpoint inequality @{text "I \<oplus> A \<cdot> A* \<le> A*"}
   (i.e.\ @{text "A*"} is a post-fixpoint of @{text "X \<mapsto> I \<oplus> A \<cdot> X"}).
 
   Since we have the star equation by @{text trop_mat_star_equation}, this
@@ -515,7 +515,7 @@ subsection \<open>11  Least Prefixpoint\<close>
 (* ------------------------------------------------------------------ *)
 
 text \<open>
-  @{text trop_mat_star_least_prefixpoint}: @{text A*} is the least solution
+  @{text trop_mat_star_least_prefixpoint}: @{text "A*"} is the least solution
   to the fixpoint equation @{text "X \<ge> I \<oplus> A \<cdot> X"} in the pointwise order.
 
   That is: if @{text "X i j \<ge> (I \<oplus> A \<cdot> X) i j"} for all @{text "i j < n"},
@@ -527,7 +527,7 @@ text \<open>
   \<^item> By induction: if @{text "X \<ge> A^k"}, then
     @{text "X \<ge> A \<cdot> X \<ge> A \<cdot> A^k = A^{k+1}"}.
   \<^item> Therefore @{text "X \<ge> A^k"} for all @{text "k \<le> n-1"}.
-  \<^item> The tropical sum (join) of @{text "A^0, \<ldots>, A^{n-1}"} is @{text A*},
+  \<^item> The tropical sum (join) of @{text "A^0, \<ldots>, A^{n-1}"} is @{text "A*"},
     which is @{text "\<le> X"}.
 \<close>
 
@@ -651,13 +651,13 @@ text \<open>
   Summary of proved results:
 
   \<^item> @{text trop_mat_star_def}: @{text "A* = (I \<oplus> A)^{n-1}"}.
-  \<^item> @{text trop_mat_star_eq_sum_pow}: @{text "A*(i,j) = \<oplus>_{m\le n-1} A^m(i,j)"}.
+  \<^item> @{text trop_mat_star_eq_sum_pow}: @{text "A*(i,j) = \<oplus>_{m \<le> n-1} A^m(i,j)"}.
   \<^item> @{text trop_mat_star_eq_sum_walks_le}:
       @{text "A*(i,j) = \<Sum>_{w \<in> walks_le n (n-1) i j} path_weight A w"}.
   \<^item> @{text trop_mat_star_equation}: @{text "A* = I \<oplus> A \<cdot> A*"} (under @{text no_pos_cycle}).
   \<^item> @{text trop_mat_star_eq_max_simple}: under @{text no_pos_cycle},
       @{text "A*(i,j) = max simple path weight"}.
-  \<^item> @{text trop_mat_star_least_prefixpoint}: @{text A*} is the least
+  \<^item> @{text trop_mat_star_least_prefixpoint}: @{text "A*"} is the least
       solution to @{text "X \<ge> I \<oplus> A \<cdot> X"}.
 
   All proofs are complete — zero @{text sorry}.

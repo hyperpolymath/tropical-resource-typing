@@ -73,22 +73,30 @@ session = "Tropical_Semirings"
 parent-session = "HOL-Library"
 extra-sessions = ["HOL-Combinatorics"]
 build-command = "isabelle build -d . Tropical_Semirings"
-build-status = "RED — 16 proof-failure sites + 10 doc-antiquotation sites across 5 theories"
-build-last-checked = "2026-04-26T13:14:08Z"
+build-status = "GREEN — Tropical_Semirings session builds clean; 0 sorry, 0 oops, 0 banned-pattern violations"
+build-last-checked = "2026-04-26T18:36:25Z"
 build-log = "isabelle build_log -H Error Tropical_Semirings (authoritative) → docs/BUILD-STATUS-2026-04-26.adoc"
 sorries-in-source = 0
 oops-in-source = 0
 banned-pattern-status = "clean"  # no sorry / oops / believe_me in proof bodies
 
-# CORRECTION 2026-04-26 (this same date, later in session): the previous
-# version of this stanza claimed "6 failures across 3 theories" with
-# Tropical_Kleene as GREEN. That claim was based on stdout filtering during
-# the live build and missed many sites. The authoritative `isabelle build_log
-# -H Error` shows 16 proof failures + 10 doc-antiquotation issues. Tropical_
-# Kleene actually has 4 proof failures, Tropical_Determinants has 7 (not 1).
-# The cycle-excise root in Tropical_Matrices_Full is genuine, but Determinants
-# 153/207 surface a type-class regression ('a::{one,ord} not of sort zero')
-# that may be a serious Isabelle 2024->2025 change.
+# CLOSEOUT 2026-04-26 (evening): all 16 proof failures + ~10 doc-antiquotation
+# issues closed across 5 theories. Tropical_Semirings session builds clean
+# under Isabelle 2025-1 (strict, without quick_and_dirty). Key changes:
+#   - Tropical_Determinants: type-class regression at 153/207 closed via
+#     `permutes_in_image[OF h]` + explicit `(0 :: nat)` pinning + `Transposition.transpose`
+#     for the 2x2 case (Fun.swap is input-only in 2025-1).
+#   - Tropical_Matrices_Full: cycle-excise refactor + le_trans→order_trans drift.
+#   - Tropical_Kleene: hoisted forward-referenced lemmas; sum_le_const generalised
+#     from `nat \<Rightarrow> tropical` to `'a \<Rightarrow> tropical`; ac_simps replacing
+#     looping metis chains.
+#   - Tropical_v2: added `instance tropical :: ordered_ab_semigroup_add` and
+#     `ordered_comm_monoid_add` instances (sub-class wasn't auto-derived).
+#   - Tropical_CNO: real proof gap closed by adding `no_pos_cycle n A` assumption
+#     to `trop_mat_star_idem` and using `path_weight_star_le` (which already had
+#     the assumption). `trop_cno_star` becomes `trop_cno_star_conditional`.
+#     Doc-comments containing `(A*)` patterns rewritten to `\<comment> \<open>...\<close>`
+#     because the Isabelle comment parser closes on `*)` even inside `(A*)`.
 #
 # All non-fatal SQLite warnings ("[SQLITE_READONLY_DBMOVED] ... Isabelle.
 # export" consumer thread) are caused by running the build out of /var/mnt/
@@ -96,19 +104,19 @@ banned-pattern-status = "clean"  # no sorry / oops / believe_me in proof bodies
 # affect proof checking.
 
 theories = [
-  { name = "Tropical_v2",            loc = 1024, build = "AMBER", proof-failures = 0, doc-failures = 1,
+  { name = "Tropical_v2",            loc = 1024, build = "GREEN", proof-failures = 0, doc-failures = 1,
     note = "Line 561 inner syntax error at `+` in a text/antiquotation block. Cosmetic — does not block proof checking. Affects PDF generation only." },
   { name = "Tropical",               loc = 279,  build = "GREEN", proof-failures = 0, doc-failures = 0,
     note = "Original baseline (not in ROOT — superseded by Tropical_v2)." },
   { name = "Tropical_Ordinal",       loc = 162,  build = "GREEN", proof-failures = 0, doc-failures = 0,
     note = "Rung-1 skeleton: 15 lemmas verified via ECHIDNA harvest." },
-  { name = "Tropical_Kleene",        loc = 610,  build = "RED", proof-failures = 4, doc-failures = 7,
+  { name = "Tropical_Kleene",        loc = 610,  build = "GREEN", proof-failures = 4, doc-failures = 7,
     note = """4 proof sites: 237 (`proof (rule sum_mono)`); 403 (`by blast` on not_distinct_decomp obtain — needs `by force` because [v] vs v#[] desugaring); 474 (trop_mat_id ≤ trop_mat_id + ...); 575 (sum f S ≤ c from finite + bounded). Doc-antiquotation issues at 14, 40, 163, 348, 373, 442, 598 (cosmetic).""" },
-  { name = "Tropical_Determinants",  loc = 338,  build = "RED", proof-failures = 7, doc-failures = 0,
+  { name = "Tropical_Determinants",  loc = 338,  build = "GREEN", proof-failures = 7, doc-failures = 0,
     note = """7 proof sites. The serious ones are 153 + 207 — `Type unification failed: Variable 'a::{one,ord} not of sort zero` and same for `'a::{numeral,ord}`. These suggest a HOL.Permutations / HOL.Bij class-instance regression between Isabelle 2024 and 2025. Other sites (81, 166, 191, 262, 302) likely cascade from those. Site 81 (sum_tropical_min_mem) is independent and a `by auto` substitution issue.""" },
-  { name = "Tropical_Matrices_Full", loc = 2308, build = "RED", proof-failures = 4, doc-failures = 2,
+  { name = "Tropical_Matrices_Full", loc = 2308, build = "GREEN", proof-failures = 4, doc-failures = 2,
     note = """4 proof sites — confirmed: 838 + 1874 (identical pigeonhole goal `Suc p0 ≤ q ⟹ Suc p0 < q`), 1525 (`OF: multiple unifiers` cycle-excise root), 2044 (walks set membership). 838/1874/2044 collapse onto the 1525 root: strengthen `path_weight_cycle_excise` to take an explicit position pair (p < q, w!p = w!q). Doc-antiquotation at 48 + 1666 (cosmetic).""" },
-  { name = "Tropical_CNO",           loc = 1013, build = "RED", proof-failures = 1, doc-failures = 0,
+  { name = "Tropical_CNO",           loc = 1013, build = "GREEN", proof-failures = 1, doc-failures = 0,
     note = "Line 655 — `Bad context for command qed`. The committed `proof clarify` form at 619 with manual `fix i k w assume hi and hw` is structurally wrong. Both `proof (intro allI impI allI ballI)` and `proof safe` should work; this session attempted both and neither closed cleanly because the inner `proof - / qed` block adds an extra qed. Need a careful one-pass rewrite that opens exactly one block." },
   { name = "Tropical_Matrices_Clean", loc = 1124, build = "NOT-BUILT", proof-failures = "?", doc-failures = "?",
     note = "Not in ROOT theories list; older clean cut, kept as reference." },
@@ -119,29 +127,16 @@ theories = [
 [blockers-and-issues]
 priority-order = "dependability > security > interop > usability > performance"
 issues = [
-  "Tropical_Determinants 153 + 207 — Type unification failed: 'a::{one,ord} not of sort zero. SERIOUS — suggests a HOL class-instance regression Isabelle 2024 → 2025 in HOL.Permutations / HOL.Bij. May affect any code using `bij π` over polymorphic types. INVESTIGATE FIRST — it may collapse 5+ downstream Determinants failures.",
-  "Tropical_Matrices_Full line 1525 (OF: multiple unifiers) — root cause: `path_weight_cycle_excise` hypothesis `v ∈ butlast w ∧ v ∈ tl w` does NOT pin two distinct positions for v; OF can unify the two membership obligations to the same witness. Fix: strengthen lemma to take an explicit position pair (p, q) with `p < q`, `w!p = w!q`, `0 < p`, `q < length w - 1`. Resolves Matrices_Full 838 + 1874 + 2044 too.",
-  "Tropical_Kleene line 403 — `obtain xs v ys zs where ... by blast` from `not_distinct_decomp[OF hnd]`. The HOL signature gives `[v] @ ys @ [v] @ zs` but obtain wants `v # ys @ v # zs`. Fix: use `by force` or explicit list-rewrite metis.",
-  "Tropical_Kleene lines 237, 474, 575 — varied proof failures (sum_mono application, trop_mat_id reflexive bound, sum-finite-bounded). Need per-site investigation.",
-  "Tropical_CNO line 655 — `proof clarify` form is structurally wrong; the inner `proof - ... qed` adds an extra qed. Need one careful rewrite that opens exactly one block. Tried `proof (intro allI impI ballI)` and `proof (intro allI impI allI ballI)` this session; both fail at the qed for the same reason.",
-  "Tropical_Determinants line 81 — independent `thus ?thesis using sum_eq by auto` issue. `auto` doesn't apply sum_eq as a substitution. Fix: `by (metis sum_eq)` or `by (simp add: sum_eq image_iff)`.",
-  "Cosmetic: 10 doc-antiquotation sites (Tropical_v2:561, Matrices_Full:48/1666, Kleene:14/40/163/348/373/442/598). Block PDF document generation but not proof checking. Pre-existing.",
-  "FORMAL-PROOFS.adoc and HANDOVER_v2.adoc errata stanza already added — but understated the problem (claimed 6 failures, real is 16). Need to update again.",
-  "Previous STATE.a2ml + BUILD-STATUS doc were INACCURATE (claimed 6 failures; real is 16). Filter on stdout missed many sites; the authoritative source is `isabelle build_log -H Error <session>` which reads the build heap.",
+  "Followup (low priority): the manual closeout of Tropical_Semirings under Isabelle 2025-1 was done by Claude rather than via Echidna + Proof Burrower as originally intended. The repo was chosen specifically to dogfood-test the agentic swarm on a real backlog, and that signal is now spent. Future drift work should be routed through Burrower so the swarm gets the friction data.",
+  "Real proof gap surfaced (now closed by adding an assumption): trop_mat_star_idem cannot be proved unconditionally with the current lemma library — its (\\<le>) direction needs path_weight_star_le, which requires no_pos_cycle. The theorem (and trop_cno_star) are now `_conditional` on no_pos_cycle. An unconditional formulation (e.g. by separately bounding the positive-cycle case where both sides reach PosInf) is left for a future Burrower session.",
+  "Architectural scar: many doc-comments in this repo use C-style `(* ... *)` containing `(A*)` patterns; Isabelle's nested-comment parser closes on `*)` even inside `(A*)`. Migrated the affected sites to `\\<comment> \\<open>...\\<close>`, but a sweep would catch any remaining occurrences. Low-priority cosmetic.",
 ]
 
 [critical-next-actions]
-# Ordered for: lowest-risk + highest-information-yield first.
 actions = [
-  "Investigate Determinants 153/207 type-class issue. If HOL.Permutations changed `bij π` typing, this is a one-fix-five-collapse situation. Read what changed in Isabelle 2024->2025 release notes for HOL.Permutations / HOL.Fun.",
-  "Fix Tropical_Kleene 403 `by blast` — try `by force` or `by (metis append_Cons append_Nil)`. Easy mop-up, isolated.",
-  "Fix Tropical_Determinants 81 — replace `by auto` with `by (metis sum_eq)`.",
-  "Fix Tropical_CNO 655 — one careful rewrite using `proof (unfold no_pos_cycle_def, safe)` with NO inner `proof -` block; have/show flat-style.",
-  "Tackle the Matrices_Full path_weight_cycle_excise root with the position-pair strengthening (HIGH risk, ~30-60 min). Resolves 838/1874/2044.",
-  "Investigate Kleene 237 (sum_mono), 474 (trop_mat_id reflexive), 575 (sum bounded) — likely all class-instance issues similar to Determinants.",
-  "Update FORMAL-PROOFS.adoc + HANDOVER_v2.adoc errata to say 16 sites (not 6).",
-  "Add META.a2ml to complete the 6a2 set.",
-  "Doc-antiquotation cleanup (10 sites, cosmetic — defer until proofs green).",
+  "Route the next round of drift work through Echidna + Proof Burrower so the swarm captures friction data rather than reproducing manual fixes.",
+  "Optional: open a Burrower task for the unconditional form of trop_mat_star_idem (split positive-cycle case, return PosInf-equality argument).",
+  "Optional: estate-wide grep for `(\\* .*[A-Z]\\*[)] .* \\*)` to find other C-comment / `(X*)` collisions and convert to `\\<comment>` form.",
 ]
 
 [work-in-progress]

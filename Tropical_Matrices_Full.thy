@@ -45,7 +45,7 @@ subsection \<open>2  Identity Matrices\<close>
 (* ------------------------------------------------------------------ *)
 
 text \<open>
-  @{text trop_mat_id n i j} is the tropical multiplicative identity matrix:
+  @{text "trop_mat_id n i j"} is the tropical multiplicative identity matrix:
   @{text "Fin 0"} on the diagonal, @{text NegInf} elsewhere.
   Similarly @{text tropm_mat_id} uses @{text "Fin' 0"} and @{text PosInf}.
 \<close>
@@ -1753,7 +1753,7 @@ text \<open>
   \<^item> @{text tropm_mat_pow_close_eq_sum_walks_le}: closed power = sum over @{text walks_le}.
   \<^item> @{text cycle_shortcutting_min}: every walk is dominated by a simple walk
     (using the no-negative-cycle assumption to bound cycle weight from below).
-  \<^item> @{text bellman_ford}: @{text antisym} proof — @{text simple_walksm \<subseteq> walks_le}
+  \<^item> @{text bellman_ford}: @{text antisym} proof — @{text "simple_walksm \<subseteq> walks_le"}
     for the @{text \<le>} direction; @{text cycle_shortcutting_min} for the @{text \<ge>} direction.
 \<close>
 
