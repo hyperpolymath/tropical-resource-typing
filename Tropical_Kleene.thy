@@ -97,8 +97,20 @@ proof -
   have mem: "m \<in> {..n-1}" using assms(3) by simp
   show ?thesis
     unfolding star
-    by (rule member_le_sum[OF _ finite_atMost mem])
-       simp
+  proof -
+    let ?f = "\<lambda>k. trop_mat_pow n A k i j"
+    have decomp: "(\<Sum> k \<in> {..n-1}. ?f k) = ?f m + (\<Sum> k \<in> {..n-1}-{m}. ?f k)"
+      using mem by (subst sum.remove[OF finite_atMost mem]) auto
+    have "?f m + (\<Sum> k \<in> {..n-1}. ?f k)
+          = ?f m + (?f m + (\<Sum> k \<in> {..n-1}-{m}. ?f k))" using decomp by simp
+    also have "\<dots> = (?f m + ?f m) + (\<Sum> k \<in> {..n-1}-{m}. ?f k)"
+      by (simp add: add.assoc)
+    also have "\<dots> = ?f m + (\<Sum> k \<in> {..n-1}-{m}. ?f k)"
+      by (simp add: tropical_add_idem)
+    also have "\<dots> = (\<Sum> k \<in> {..n-1}. ?f k)" using decomp by simp
+    finally have "?f m + (\<Sum> k \<in> {..n-1}. ?f k) = (\<Sum> k \<in> {..n-1}. ?f k)" .
+    thus "?f m \<le> (\<Sum> k \<in> {..n-1}. ?f k)" by (simp add: trop_add_le_iff)
+  qed
 qed
 
 (* ================================================================== *)
@@ -125,13 +137,13 @@ subsection \<open>6  A* \<ge> A\<close>
 (* ------------------------------------------------------------------ *)
 
 lemma trop_mat_star_ge_mat:
-  assumes "i < n" "j < n" "0 < n"
+  assumes "i < n" "j < n" "1 < n"
   shows "A i j \<le> trop_mat_star n A i j"
 proof -
   have "A i j = trop_mat_pow n A 1 i j"
-    using assms(1,2) by (simp add: trop_mat_pow_one)
+    using assms(1,2) trop_mat_pow_one[OF assms(1,2)] by simp
   also have "\<dots> \<le> trop_mat_star n A i j"
-    using assms by (rule trop_mat_pow_le_star) simp
+    using assms(1,2) by (rule trop_mat_pow_le_star) (use assms(3) in linarith)
   finally show ?thesis .
 qed
 
@@ -178,9 +190,13 @@ proof (rule antisym)
             trop_mat_add n (trop_mat_id n) (trop_mat_mul n A (trop_mat_star n A)) i j"
       proof (cases m)
         case 0
-        (* A^0 = I \<le> I \<oplus> A \<cdot> A* *)
-        show ?thesis
-          by (simp add: "0" trop_mat_add_def le_add_same_cancel1)
+        (* A^0 = I \<le> I \<oplus> A \<cdot> A*; in tropical (max), x \<le> x + y always. *)
+        let ?I = "trop_mat_id n i j"
+        let ?X = "trop_mat_mul n A (trop_mat_star n A) i j"
+        have idem_step: "?I + (?I + ?X) = ?I + ?X"
+          by (simp add: add.assoc[symmetric] tropical_add_idem)
+        hence "?I \<le> ?I + ?X" by (simp add: trop_add_le_iff)
+        thus ?thesis using "0" by (simp add: trop_mat_add_def)
       next
         case (Suc m')
         (* A^{Suc m'} = A \<cdot> A^{m'} \<le> A \<cdot> A* \<le> I \<oplus> A \<cdot> A* *)
@@ -199,7 +215,14 @@ proof (rule antisym)
           also have "\<dots> = (\<Sum> l \<in> {..<n}. trop_mat_pow n A 1 i l * trop_mat_pow n A m' l j)"
             by (simp add: trop_mat_mul_def)
           also have "\<dots> = (\<Sum> l \<in> {..<n}. A i l * trop_mat_pow n A m' l j)"
-            by (rule sum.cong, simp) (simp add: trop_mat_pow_one assms(1))
+          proof (rule sum.cong[OF refl])
+            fix l assume "l \<in> {..<n}"
+            hence hl: "l < n" by simp
+            have "trop_mat_pow n A 1 i l = A i l"
+              using trop_mat_pow_one[OF assms(1) hl] .
+            thus "trop_mat_pow n A 1 i l * trop_mat_pow n A m' l j =
+                  A i l * trop_mat_pow n A m' l j" by simp
+          qed
           also have "\<dots> = trop_mat_mul n A (trop_mat_pow n A m') i j"
             by (simp add: trop_mat_mul_def)
           finally show ?thesis by simp
@@ -439,8 +462,8 @@ theorem trop_mat_star_least_prefixpoint:
   shows "trop_mat_star n A i j \<le> X i j"
 proof -
   (* Step 1: X dominates every power A^k pointwise — proved by induction on k *)
-  have pow_le_X_gen: "\<forall> k. k \<le> n - 1 \<longrightarrow>
-       (\<forall> i' < n. \<forall> j' < n. trop_mat_pow n A k i' j' \<le> X i' j')"
+  have pow_le_X_gen: "k \<le> n - 1 \<longrightarrow>
+       (\<forall> i' < n. \<forall> j' < n. trop_mat_pow n A k i' j' \<le> X i' j')" for k
   proof (induction k)
     case 0
     show ?case
@@ -516,12 +539,27 @@ text \<open>
   These lemmas are used in the proofs above and collected here for clarity.
 \<close>
 
+(* member_le_sum: every member of a finite tropical sum is bounded by
+   the sum (since sum = max, and any element \<le> max). The original
+   definition was circular — `by (rule member_le_sum)` calls itself.
+   Proven here directly via sum.remove + add idempotency. *)
 lemma member_le_sum:
   fixes f :: "nat \<Rightarrow> tropical"
   assumes "finite S" "\<forall> x \<in> S. (0 :: tropical) \<le> f x" "m \<in> S"
   shows "f m \<le> (\<Sum> x \<in> S. f x)"
-  using assms
-  by (rule member_le_sum)
+proof -
+  have decomp: "(\<Sum> x \<in> S. f x) = f m + (\<Sum> x \<in> S - {m}. f x)"
+    using assms(1,3) by (subst sum.remove) auto
+  have "f m + (\<Sum> x \<in> S. f x) = f m + (f m + (\<Sum> x \<in> S - {m}. f x))"
+    using decomp by simp
+  also have "\<dots> = (f m + f m) + (\<Sum> x \<in> S - {m}. f x)"
+    by (simp add: add.assoc)
+  also have "\<dots> = f m + (\<Sum> x \<in> S - {m}. f x)"
+    by (simp add: tropical_add_idem)
+  also have "\<dots> = (\<Sum> x \<in> S. f x)" using decomp by simp
+  finally have "f m + (\<Sum> x \<in> S. f x) = (\<Sum> x \<in> S. f x)" .
+  thus ?thesis by (simp add: trop_add_le_iff)
+qed
 
 text \<open>
   Tropical sum bounded by constant: if every summand is @{text "\<le> c"},

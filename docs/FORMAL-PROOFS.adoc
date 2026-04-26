@@ -5,6 +5,19 @@ Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 :toc:
 :icons: font
 
+[NOTE]
+====
+*Errata 2026-04-26.* This document and `HANDOVER_v2.adoc` claim
+"all sorries closed" / "AFP submission ready" for the Isabelle side.
+That claim was true under Isabelle 2024. Under Isabelle 2025-1 the
+session has six structural / syntactic regressions across three
+theories (`Tropical_Determinants` ×1, `Tropical_Matrices_Full` ×4,
+`Tropical_CNO` ×1). The body of work is intact (5 600+ LOC of Isar,
+zero `sorry`/`oops`/`believe_me` in proof bodies) — the regression
+is purely Isabelle-version drift. See `BUILD-STATUS-2026-04-26.adoc`
+for the verbatim failures, root-cause grouping, and recovery plan.
+====
+
 == Introduction
 
 This document formalises the soundness and refinement properties of

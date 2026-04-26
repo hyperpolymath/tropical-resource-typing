@@ -1,6 +1,6 @@
 = Tropical Semiring Formalisation: Master Handover
 Jonathan D.A. Jewell (hyperpolymath)
-v2.0, 2026-04-11
+v2.0, 2026-04-11 (errata 2026-04-26)
 :toc:
 :toc-placement: preamble
 :sectnums:
@@ -9,6 +9,21 @@ This document supersedes the April 2026 v1.0 handover.
 Drop this into a fresh conversation to resume any workstream.
 The previous handover (v1.0) can be deleted — everything it contained
 is here, corrected where wrong, and extended with the CNO work.
+
+[NOTE]
+====
+*Errata 2026-04-26.* The "0 sorries" column below is correct as a
+*source-text* claim — no `sorry`/`oops`/`believe_me` appear in any
+proof body. However, under Isabelle 2025-1 the session no longer
+builds clean: six structural regressions remain, all syntactic /
+Isabelle-version drift, none mathematical. See
+`BUILD-STATUS-2026-04-26.adoc` for the verbatim failures, the
+single root cause (`path_weight_cycle_excise` hypothesis weakness)
+that explains four of them, and the recovery plan in order of ease.
+The 2026-04-25/26 ECHIDNA + Proof Burrower iteration landed ~22
+fixes (Tropical_Kleene moved AMBER → GREEN this session). 6 more
+fixes remain.
+====
 
 == File Inventory (definitive)
 

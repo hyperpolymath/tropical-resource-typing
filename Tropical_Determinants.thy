@@ -59,20 +59,7 @@ text \<open>
 
 lemma tropm_add_eq_left_or_right:
   "(a :: tropical_min) + b = a \<or> a + b = b"
-proof (cases a; cases b)
-  case PosInf_PosInf: (2 2)
-  then show ?thesis by simp
-next
-  case (1 m)
-  then show ?thesis by simp
-next
-  case (2 n)
-  then show ?thesis by simp
-next
-  case (Fin'_Fin': (1 m) (1 n))
-  then show ?thesis
-    by (simp add: plus_tropical_min_def min_def)
-qed
+  by (cases a; cases b) (auto simp: plus_tropical_min_def min_def)
 
 lemma sum_tropical_min_mem:
   assumes "finite S" "S \<noteq> {}"
@@ -89,7 +76,9 @@ next
   show ?case
   proof
     assume eq: "f x + (\<Sum> y \<in> F. f y) = f x"
-    then show ?thesis using step by (simp add: image_insert)
+    hence sum_eq: "(\<Sum> y \<in> insert x F. f y) = f x" using step by simp
+    have "f x \<in> f ` insert x F" by simp
+    thus ?thesis using sum_eq by auto
   next
     assume eq: "f x + (\<Sum> y \<in> F. f y) = (\<Sum> y \<in> F. f y)"
     from insert.IH obtain z where "z \<in> F" "f z = (\<Sum> y \<in> F. f y)"

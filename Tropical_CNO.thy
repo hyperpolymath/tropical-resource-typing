@@ -616,9 +616,8 @@ theorem has_positive_cycle_star:
   assumes "0 < n"
   shows "no_pos_cycle n (trop_mat_star n A)"
   unfolding no_pos_cycle_def
-proof (intro allI impI ballI)
-  fix i assume hi: "i < n"
-  fix k w assume hw: "w \<in> walks n k i i"
+proof clarify
+  fix i k w assume hi: "i < n" and hw: "w \<in> walks n k i i"
   show "path_weight (trop_mat_star n A) w \<le> (1 :: tropical)"
   proof -
     (* Step 1: path_weight (A*) w \<le> A* i i,

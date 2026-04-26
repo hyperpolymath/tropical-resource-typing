@@ -6,14 +6,22 @@
 
 [metadata]
 project = "tropical-resource-typing"
-version = "0.1.0"
-last-updated = "2026-04-04"
+version = "0.2.0"
+last-updated = "2026-04-26"
 status = "active"  # active | paused | archived
 
 [project-context]
 name = "tropical-resource-typing"
-purpose = "Tropical resource typing for communication protocols — a documentation/research artefact repo containing a PDF paper and supporting materials."
-completion-percentage = 30
+purpose = """
+Tropical resource typing for communication protocols. Two parallel artefacts:
+  (a) the published paper / handover docs (PDF + AsciiDoc), and
+  (b) a substantial Isabelle/HOL formalisation (~6,900 LOC across 9 .thy
+      files) covering tropical semirings, matrix algebra, walk semantics,
+      Kleene star, the CNO absolute-zero resource framework, tropical
+      determinants (min-cost perfect matching), and a new Rung-1 ordinal
+      lift toward Buchholz collapsing functions.
+"""
+completion-percentage = 60
 
 [position]
 phase = "implementation"   # design | implementation | testing | maintenance | archived
@@ -22,9 +30,12 @@ maturity = "alpha"         # experimental | alpha | beta | production | lts
 [route-to-mvp]
 milestones = [
   { name = "Phase 0: PDF artefact and LICENSE", completion = 100 },
-  { name = "Phase 1: README and documentation", completion = 20 },
+  { name = "Phase 1: README and documentation", completion = 40 },
   { name = "Phase 2: Structural validation tests (CRG Grade C)", completion = 100 },
-  { name = "Phase 3: Supporting code or formalisation", completion = 0 },
+  { name = "Phase 3: Isabelle/HOL formalisation — Tropical_v2 + Determinants", completion = 100 },
+  { name = "Phase 4: Isabelle/HOL — Matrices_Full / Kleene / CNO clean build under Isabelle 2025", completion = 70 },
+  { name = "Phase 5: Rung-1 ordinal lift (Tropical_Ordinal + Bridge)", completion = 60 },
+  { name = "Phase 6: Buchholz-collapsing-function ladder (Rungs 2–N)", completion = 0 },
 ]
 
 [crg]
@@ -41,25 +52,100 @@ evidence = [
 ]
 test-command = "deno test --allow-read tests/"
 
+[isabelle-build]
+# Honest record — the previous claim of "all sorries closed, AFP submission
+# ready" applied to Isabelle 2024 and the prior namespace; under Isabelle 2025
+# several proofs broke (omega→linarith, sum lemmas renamed, class-instance
+# resolution differences, etc.) and a survey was grep-based, not build-based.
+session = "Tropical_Semirings"
+parent-session = "HOL-Library"
+extra-sessions = ["HOL-Combinatorics"]
+build-command = "isabelle build -d . Tropical_Semirings"
+build-status = "RED — 6 failures across 3 theories"
+build-last-checked = "2026-04-26T11:54:26Z"
+build-log = "/tmp/iso-build.log (transient) → docs/BUILD-STATUS-2026-04-26.adoc (committed)"
+sorries-in-source = 0
+oops-in-source = 0
+banned-pattern-status = "clean"  # no sorry / oops / believe_me in proof bodies
+
+# All non-fatal SQLite warnings ("[SQLITE_READONLY_DBMOVED] ... Isabelle.export"
+# consumer thread) are caused by running the build out of /var/mnt/eclipse
+# (a symlinked mount) without resetting the export DB; they do NOT affect
+# proof checking. Real compile errors only are listed in `theories` below.
+
+theories = [
+  { name = "Tropical_v2",            loc = 1024, build = "GREEN", failures = 0 },
+  { name = "Tropical",               loc = 279,  build = "GREEN", failures = 0,
+    note = "Original baseline (not in ROOT — superseded by Tropical_v2)." },
+  { name = "Tropical_Ordinal",       loc = 162,  build = "GREEN", failures = 0,
+    note = "Rung-1 skeleton: 15 lemmas verified via ECHIDNA harvest. Untracked file — needs commit." },
+  { name = "Tropical_Kleene",        loc = 610,  build = "GREEN", failures = 0,
+    note = "Was AMBER; now GREEN: circular member_le_sum rewritten, trop_mat_star_ge_mat strengthened to 1 < n, case-0 and per-element proofs rebuilt." },
+  { name = "Tropical_Determinants",  loc = 338,  build = "RED",   failures = 1,
+    note = "Line 81 — `thus ?thesis using sum_eq by auto` fails inside `case (insert x F)` of finite_ne_induct. The earlier (cases a; cases b) cleanup landed but uncovered this latent issue." },
+  { name = "Tropical_Matrices_Full", loc = 2308, build = "RED",   failures = 4,
+    note = """≈22 fixes landed this iteration; 4 failures remain, all from one root cause in `path_weight_cycle_excise`. Lines: 838 (Suc p0 < q pigeonhole — false in shape `Suc p0 ≤ q`), 1525 (`OF: multiple unifiers` — hypothesis `v ∈ butlast w ∧ v ∈ tl w` matches in two ways without anchoring positions), 1900 (`w ≠ []` from `0 < p'`), 2044 (set membership in walks definition unfolded form).""" },
+  { name = "Tropical_CNO",           loc = 1013, build = "RED",   failures = 1,
+    note = "Line 655 — `Bad context for command qed`. The `proof clarify` change at 619 left the inner `proof - / qed` block at 622–654 mismatched by one (clarify already does fix/assume so the manual `fix i k w assume` at 620 doesn't pair with `proof clarify`). Revert to `proof (intro allI impI ballI)` with explicit fix/assume, OR drop the inner `proof -` so `proof clarify ... qed` is a single block." },
+  { name = "Tropical_Matrices_Clean", loc = 1124, build = "NOT-BUILT",
+    note = "Not in ROOT theories list; older clean cut, kept as reference." },
+  { name = "Tropical_Ordinal_Bridge", loc = 38,  build = "NOT-BUILT",
+    note = "Bridge from generic ordinal lift to nat-coefficient Tropical_v2 — depends on Tropical_v2 (GREEN) + Tropical_Ordinal (GREEN). Untracked file — needs commit." },
+]
+
 [blockers-and-issues]
 issues = [
-  "README.md is minimal — needs proper documentation of the paper",
-  "No supporting formalisation code yet",
+  "Tropical_Determinants line 81 — sum_tropical_min_mem case (insert x F) — `thus ?thesis using sum_eq by auto` fails. Fix likely: `thus ?thesis by (auto simp: sum_eq image_iff)` or rewrite via `image_eqI`. NEW finding (was incorrectly marked GREEN in previous STATE).",
+  "Tropical_Matrices_Full line 1525 (OF: multiple unifiers) — root cause: `path_weight_cycle_excise` hypothesis `v ∈ butlast w ∧ v ∈ tl w` does NOT pin two distinct positions for v; OF can unify the two membership obligations to the same witness. Fix: strengthen lemma to take an explicit position pair (p, q) with `p < q`, `w!p = w!q`, `0 < p`, `q < length w - 1`.",
+  "Tropical_Matrices_Full lines 838, 1900, 2044 — all dependent on the same path_weight_cycle_excise root.",
+  "Tropical_CNO line 655 — `proof clarify` + manual `fix i k w assume hi and hw` is structurally wrong; clarify already discharges the implications. Either drop manual fix, or revert to `proof (intro allI impI ballI)` and split fix/assume across i and (k,w).",
+  "FORMAL-PROOFS.adoc and HANDOVER_v2.adoc still claim AFP-ready / zero-sorries — true in Isabelle 2024, false in Isabelle 2025. Need errata.",
+  "Tropical_Ordinal.thy + Tropical_Ordinal_Bridge.thy uncommitted; will be lost if /var/mnt/eclipse symlink breaks.",
 ]
 
 [critical-next-actions]
 actions = [
-  "Expand README.md with abstract, citation, and usage guidance",
-  "Add .machine_readable/ supporting files (ECOSYSTEM.a2ml, META.a2ml)",
+  "Commit current in-flight work as one batch: STATE.a2ml drift fix + new Tropical_Ordinal{,_Bridge}.thy + the 22-fix iteration on Matrices_Full / Kleene / Determinants / CNO. Atomic so it's recoverable.",
+  "Fix Tropical_CNO line 619 structure: drop manual `fix i k w assume` after `proof clarify` (clarify already exposes them as `fix` in the goal context).",
+  "Fix Tropical_Determinants line 81: replace `by auto` with explicit `by (rule image_eqI[OF refl]) simp` or `by (auto intro: imageI)`.",
+  "Tackle the Matrices_Full path_weight_cycle_excise root with the position-pair strengthening; the four downstream sites should fall together.",
+  "Commit BUILD-STATUS-2026-04-26.adoc with the verbatim failure log and the diagnosis above.",
+  "Add a one-paragraph errata stanza to FORMAL-PROOFS.adoc and HANDOVER_v2.adoc pointing at BUILD-STATUS-2026-04-26.adoc.",
+  "Add META.a2ml to .machine_readable/6a2/ to complete the 6a2 set (currently only STATE + ECOSYSTEM).",
 ]
 
+[work-in-progress]
+# Snapshot from the 2026-04-26 ECHIDNA + Proof Burrower iteration.
+session-iteration = "2026-04-26"
+fixes-landed = [
+  "Tropical_Matrices_Full: ~22 fixes — sum.atLeastAtMost_Suc → manual sum.insert; sum_add_distrib → sum.distrib; tropm_add_idem → tropm_add_idem_thm; trop_walks_sum_dominated helper; mirror tropm_* helpers; helper lemma trop_mat_pow_close_eq_sum_pow_aux with `arbitrary: j`; non-inductive trop_walks_sum_mono_subset; omega→linarith global; fixed Sigma reindex over case_prod via comp_def.",
+  "Tropical_Kleene: circular member_le_sum proof rewritten; case-0 of Kleene 195 proven; per-element proof at line 218; trop_mat_star_ge_mat strengthened to 1 < n; induction k over bound variable via `for k`. Result: GREEN.",
+  "Tropical_Determinants: complex case naming `(2 2)` simplified to `by (cases a; cases b) (auto simp: ...)`; line-79 explicit construction. (line 81 still RED — separate issue.)",
+  "Tropical_CNO: line-619 has_positive_cycle_star changed to `proof clarify` — STRUCTURE STILL WRONG, see line-655 failure.",
+]
+fixes-pending = [
+  "Tropical_Determinants × 1 (line 81 sum_tropical_min_mem)",
+  "Tropical_Matrices_Full × 4 (838 / 1525 / 1900 / 2044 — single cycle-excise root)",
+  "Tropical_CNO × 1 (line 619 proof structure)",
+]
+
+[burrower-handoff]
+# Burrower (proof-burrower private repo) is the eventual driver for these
+# remaining fixes. ECHIDNA-INTEGRATION.adoc in proof-burrower documents 9
+# concrete integration points; the cycle-shortcut family is a strong first
+# real-world test.
+proof-burrower-repo = "github:hyperpolymath/proof-burrower (private)"
+first-real-test    = "Tropical_Matrices_Full path_weight_cycle_excise root"
+next-handoff-step  = "Wire EI-1 (project-aware probe) + BI-1 (burrower serve socket); see proof-burrower/docs/ECHIDNA-INTEGRATION.adoc"
+
 [maintenance-status]
-last-run-utc = "never"
-last-report = "none"
-last-result = "unknown"
+last-run-utc = "2026-04-26T11:54:26Z"
+last-report = "docs/BUILD-STATUS-2026-04-26.adoc"
+last-result = "RED — 6 failures across 3 theories (Tropical_Determinants ×1, Tropical_Matrices_Full ×4, Tropical_CNO ×1); 4 GREEN (Tropical_v2, Tropical, Tropical_Ordinal, Tropical_Kleene); 2 NOT-BUILT (Tropical_Matrices_Clean, Tropical_Ordinal_Bridge)"
 open-warnings = 0
-open-failures = 0
+open-failures = 6
 
 [ecosystem]
 part-of = ["nextgen-languages", "type-theory research"]
-depends-on = []
+depends-on = ["echidna (proof search)", "proof-burrower (private; goal-homing swarm)"]
+co-evolves-with = ["echidnabot", "proof-burrower"]
