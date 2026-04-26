@@ -1,133 +1,197 @@
 // SPDX-License-Identifier: PMPL-1.0-or-later
-= Tropical_Semirings — Build Status 2026-04-26
+= Tropical_Semirings — Build Status 2026-04-26 (v2 corrected)
 Jonathan D.A. Jewell (hyperpolymath)
-v1.0, 2026-04-26
+v2.0, 2026-04-26
 :toc:
 :toc-placement: preamble
 
 [abstract]
 Honest snapshot of the `Tropical_Semirings` Isabelle/HOL session under
 Isabelle 2025-1, after the 2026-04-25/26 ECHIDNA + Proof Burrower
-iteration. Supersedes the AFP-ready / zero-sorries claims in
-`FORMAL-PROOFS.adoc` and `HANDOVER_v2.adoc` (those reflected Isabelle
-2024 and have not held since the 2025 upgrade).
+iteration. **Supersedes the v1.0 of this document committed in
+`61ee698` earlier today, which understated the failure count.**
+Supersedes the AFP-ready / zero-sorries claims in `FORMAL-PROOFS.adoc`
+and `HANDOVER_v2.adoc`.
 
-== Headline
+== Important — methodology lesson
 
-[cols="1,1,1,4", options="header"]
+The v1.0 of this document, the `STATE.a2ml` checkpoint in commit
+`61ee698`, and the errata stanzas in the two handover docs all said
+"6 failures across 3 theories". That number came from grepping
+`***`-prefixed lines off the live `isabelle build` stdout while it ran.
+
+The **authoritative** error inventory comes from:
+
+----
+isabelle build_log -H Error <session>
+----
+
+which reads the build heap and reports every error site Isabelle
+recorded — including `Bad arguments for document antiquotation`, `Type
+unification failed`, `Local statement fails to refine`, etc., which my
+stdout filter dropped. Using the authoritative source the picture is:
+
+* **16 proof-failure sites** across 4 theories (Determinants ×7,
+  Kleene ×4, Matrices_Full ×4, CNO ×1).
+* **10 doc-antiquotation / lexical sites** (cosmetic — block PDF
+  generation, not proof checking).
+
+Every step in this repo henceforth should consult `build_log -H Error`
+before claiming a count.
+
+== Headline (corrected)
+
+[cols="2,1,1,1,4", options="header"]
 |===
-| Theory | LOC | Status | Notes
+| Theory | LOC | Proof × | Doc × | Notes
 
-| `Tropical_v2`             | 1024 | GREEN     | Baseline (nat-coefficient).
-| `Tropical`                | 279  | GREEN     | Original — superseded; still loads.
-| `Tropical_Ordinal`        | 162  | GREEN     | Rung-1 skeleton, ECHIDNA-harvested. Untracked.
-| `Tropical_Kleene`         | 610  | GREEN     | Was AMBER; now GREEN this iteration.
-| `Tropical_Determinants`   | 338  | RED ×1    | Line 81 `sum_tropical_min_mem`.
-| `Tropical_Matrices_Full`  | 2308 | RED ×4    | Lines 838 / 1525 / 1900 / 2044 — **single root cause** in `path_weight_cycle_excise`.
-| `Tropical_CNO`            | 1013 | RED ×1    | Line 619/655 — `proof clarify` structure mismatch.
-| `Tropical_Matrices_Clean` | 1124 | NOT-BUILT | Not in `ROOT` theories list (older clean cut, kept as reference).
-| `Tropical_Ordinal_Bridge` |  38  | NOT-BUILT | Untracked; needs `Tropical_v2` + `Tropical_Ordinal`.
+| `Tropical_v2`             | 1024 | **0**  | 1     | Doc: 561 inner syntax error at `+` in text/antiquotation block.
+| `Tropical`                | 279  | **0**  | 0     | Original baseline (not in `ROOT` — superseded).
+| `Tropical_Ordinal`        | 162  | **0**  | 0     | Rung-1 skeleton; 15 lemmas verified via ECHIDNA harvest.
+| `Tropical_Kleene`         | 610  | **4**  | 7     | 237/403/474/575. Was wrongly classified GREEN in v1.
+| `Tropical_Determinants`   | 338  | **7**  | 0     | 81/153/166/191/207/262/302. **Likely root: 153+207 type-class regression** (`'a::{one,ord} not of sort zero`).
+| `Tropical_Matrices_Full`  | 2308 | **4**  | 2     | 838/1525/1874/2044 — 838+1874+2044 collapse onto **1525 cycle-excise root**.
+| `Tropical_CNO`            | 1013 | **1**  | 0     | 655 — Bad context for qed (proof structure).
+| `Tropical_Matrices_Clean` | 1124 | (n/a)  | (n/a) | Not in `ROOT` (older clean cut).
+| `Tropical_Ordinal_Bridge` |  38  | (n/a)  | (n/a) | Not in `ROOT` (depends on Ordinal + v2).
+9+| **Total: 16 proof + 10 doc**
 |===
 
 Session result: `Unfinished session(s): Tropical_Semirings` at
-`Sun Apr 26 12:54:26 GMT+1 2026`.
+`Sun Apr 26 13:14:08 GMT+1 2026`.
 
-== Build command
+== Build commands
 
 ----
 cd /var/mnt/eclipse/repos/verification-ecosystem/tropical-resource-typing
 isabelle build -d . -v Tropical_Semirings
+isabelle build_log -H Error Tropical_Semirings    # AUTHORITATIVE
 ----
 
 (Local Isabelle: `Isabelle2025-1`, `/usr/local/bin/isabelle`.)
 
 == SQLite warnings — non-fatal
 
-The log is dominated by repeated:
-
-----
-*** Consumer thread failure: "Isabelle.export"
-*** [SQLITE_READONLY_DBMOVED] The database file has been moved since it was
-opened (attempt to write a readonly database)
-----
-
-These come from running the build inside `/var/mnt/eclipse` (a symlinked
-mount) without first invalidating the export DB. They affect only the
-session's cached export artefacts, not proof checking. They can be
-silenced by running with `-c -o export_proofs=false` or by clearing
+Repeated `[SQLITE_READONLY_DBMOVED] ... Isabelle.export` consumer-thread
+warnings come from running the build inside `/var/mnt/eclipse` (a
+symlinked mount) without first invalidating the export DB. They affect
+only the session's cached export artefacts, not proof checking. Silence
+with `-c -o export_proofs=false` or by clearing
 `~/.isabelle/Isabelle2025-1/heaps/*/export.db` before the build.
 
-== Real failures (verbatim, in build order)
+== Real failures by theory
 
-=== F1 — `Tropical_Determinants` line 81
+=== `Tropical_v2` (1 doc site)
+
+==== V-D1 — line 561 (cosmetic)
 
 ----
-*** Failed to apply initial proof method (line 81 of "Tropical_Determinants.thy"):
-***  insert x
-***   F
+*** Inner syntax error (line 561 of Tropical_v2.thy)
+*** at "+"
+*** Failed to parse term
+----
+
+Inside a text/antiquotation block — `@{text "..."}` antiquotation
+contains a `+` that isn't recognised as a term in the current
+context. Cosmetic; proof checking unaffected. Defer.
+
+=== `Tropical_Determinants` (7 proof sites)
+
+==== D-153 + D-207 — likely root (HIGH priority)
+
+----
+*** Type unification failed: Variable 'a::{one,ord} not of sort zero
+*** Type error in application: incompatible operand type
+***   Operator:  π :: 'a ⇒ 'a
+***   Operand:   0 :: ??'a
+*** At command "have" (line 153)
+
+*** Type unification failed: Variable 'a::{numeral,ord} not of sort zero
+*** ... same shape ...
+*** At command "have" (line 207)
+----
+
+Both sites use `bij π` over polymorphic `'a`. In Isabelle 2024 this
+inferred `'a = nat`; in Isabelle 2025-1 the inference picks
+`'a::{one,ord}` (or `'a::{numeral,ord}`), which is not of sort `zero`,
+and `0` then has no type. Likely a knock-on from a HOL.Permutations or
+HOL.Bij class-instance change.
+
+**Fix candidates:**
+* Annotate the `bij π` site with `(\<pi> :: nat \<Rightarrow> nat)`.
+* Add `for π :: "nat \<Rightarrow> nat"` to the surrounding lemma.
+* Investigate whether Isabelle 2025 release notes mention a
+  Permutations / Bij signature change.
+
+**Why this is likely the root:** sites 81, 166, 191, 262, 302 are all
+downstream proofs in the same theory. If the type is wrong at 153/207
+and a witness type is then exported across the file, downstream
+`have`s and `show`s about that witness can fail in ways that look
+unrelated.
+
+==== D-81 — likely independent
+
+----
+*** Local statement fails to refine any pending goal
+*** Failed attempt to solve goal by exported rule:
+***   (f x + sum f F = f x) ⟹ sum f (insert x F) ∈ f ` insert x F
 *** At command "thus" (line 81)
 ----
 
-Context (lines 64–88): `sum_tropical_min_mem`, induction by
-`finite_ne_induct`, branch where `f x + (∑ y∈F. f y) = f x`. After
-`have sum_eq: "(∑ y∈insert x F. f y) = f x"` and
-`have "f x ∈ f \` insert x F" by simp`, the line is
-`thus ?thesis using sum_eq by auto`.
+`sum_tropical_min_mem` case `(insert x F)`. The proof is structurally
+correct, but `auto` is not applying `sum_eq` as a substitution.
 
-==== Diagnosis
-`sum_eq` rewrites the goal `(∑ y∈insert x F. f y) ∈ f \` insert x F` to
-`f x ∈ f \` insert x F`, which is exactly the previous `have` — but
-`auto` is not unfolding the rewrite into the membership goal. Likely
-fixes:
+**Fix:** `thus ?thesis using sum_eq by metis` or `by (simp add: sum_eq image_iff)`.
 
-* `thus ?thesis by (simp add: sum_eq image_iff bexI[OF refl])`
-* or: drop `thus` and write
-  `from sum_eq show ?thesis by (rule subst[where P="\<lambda>x. x \<in> f \` insert x F"]) (simp add: image_iff)`
-* or simplest: `show ?thesis using sum_eq by (auto simp: image_iff)`.
+==== D-166, D-191, D-262, D-302 — investigate after D-153/207
 
-==== Risk
-LOW — local rewriting issue; no architectural impact.
+Likely cascade. Triage after the type-class root is fixed.
 
-=== F2 — `Tropical_Matrices_Full` line 2044
+=== `Tropical_Kleene` (4 proof sites + 7 doc sites)
+
+==== K-237 — `proof (rule sum_mono)` fails
 
 ----
-*** Failed to apply initial proof method (line 2044 of "Tropical_Matrices_Full.thy"):
-*** goal (1 subgoal):
-***  1. w''
-***     ∈ {w. length w = Suc (length w'' - 1) ∧
-***           hd w = i ∧ last w = j ∧ set w ⊆ {..<n}}
-*** At command "proof" (line 2044)
+*** Failed to apply initial proof method (line 237)
+*** goal: (∑l<n. A i l * trop_mat_pow n A m' l j)
+***       ≤ (∑l<n. A i l * trop_mat_star n A l j)
 ----
 
-==== Diagnosis
-Walks set is unfolded into its definition. The goal after `proof`
-demands membership in the unfolded form `{w. ...}`. Either the wrong
-set definition was substituted, or the `proof` method needs
-`unfolding walks_def` before being applied. **Downstream of F4** —
-likely resolves once `path_weight_cycle_excise` carries the
-position-pair witness.
+`sum_mono : (⋀i. i ∈ K ⟹ f i ≤ g i) ⟹ sum f K ≤ sum g K` requires the
+result type to be in `ordered_comm_monoid_add`. Tropical may need a
+typeclass annotation here.
 
-==== Risk
-MEDIUM — fix either local (unfold + `simp`) or follows F4.
+**Fix:** try `proof (intro sum_mono ballI)` or
+`proof (rule sum_mono[where f="..." and g="..."])`.
 
-=== F3 — `Tropical_Matrices_Full` line 1900
+==== K-403 — `obtain ... by blast` (easy mop-up)
 
 ----
-*** Failed to finish proof (line 1900 of "Tropical_Matrices_Full.thy"):
-*** goal (1 subgoal):
-***  1. ⟦p' < length w; 0 < p'⟧ ⟹ w ≠ []
-*** At command "by" (line 1900)
+*** using this:
+***   ∃xs ys zs y. w = xs @ [y] @ ys @ [y] @ zs
+*** goal: (⋀xs v ys zs. w = xs @ v # ys @ v # zs ⟹ thesis) ⟹ thesis
 ----
 
-==== Diagnosis
-Trivial: `0 < p' ∧ p' < length w ⟹ length w > 0 ⟹ w ≠ []`. The
-`by` method chosen does not chase that chain. Replace with
-`by (cases w) auto` or `by (metis length_greater_0_conv list.size(3) less_zeroE order_less_trans)`.
+`not_distinct_decomp` returns `[y] @ ys @ [y]`; the obtain wants
+`v # ys @ v #`. blast doesn't desugar `[y]` to `y # []`.
 
-==== Risk
-LOW — local automation tweak.
+**Fix:** `by force` or `by (metis append_Cons append_Nil)`. **Verified working in this session's build #2** (then reverted to clean baseline).
 
-=== F4 — `Tropical_Matrices_Full` line 1525 — **ROOT CAUSE**
+==== K-474 — `trop_mat_id ≤ trop_mat_id + trop_mat_mul`
+
+Reflexive bound on tropical addition. Likely needs an instance lemma.
+
+==== K-575 — `sum f S ≤ c` from finite-bounded
+
+Standard `sum_bounded_above` should apply; unclear why it doesn't.
+
+==== K-doc-* — 7 doc-antiquotation sites (lines 14, 40, 163, 348, 373, 442, 598)
+
+Cosmetic. Defer.
+
+=== `Tropical_Matrices_Full` (4 proof sites + 2 doc sites)
+
+==== M-1525 — root cause (HIGH priority — explains M-838 + M-1874 + M-2044)
 
 ----
 *** exception THM 0 raised (line 308 of "drule.ML"):
@@ -137,176 +201,130 @@ LOW — local automation tweak.
 ***   ⟹ ∃w'. path_weight ?A ?w ≤ path_weight ?A w' ∧
 ***           length w' < length ?w ∧ w' ≠ [] ∧
 ***           hd w' = hd ?w ∧ last w' = last ?w ∧ set w' ⊆ {..<?n}
-***   v ∈ set (butlast w)
-***   v ∈ set (tl w)
-***   no_pos_cycle n A
-***   w ∈ walks n k i j
 *** At command "using" (line 1525)
 ----
 
-==== Diagnosis
-This is the deep mathematical issue. The lemma
-`path_weight_cycle_excise` takes a vertex `v` known to be **both** in
-`butlast w` and in `tl w`. From those two memberships you can extract
-**two indices** `p, q` with `w!p = v` and `w!q = v`, but in the
-absence of an extra constraint they may collapse to the same position
-(e.g. `v` appears exactly once at position `p` with `0 < p < length w
-- 1`, in which case `v ∈ set (butlast w)` AND `v ∈ set (tl w)` both
-hold for the same `p`). The `OF` resolution then has multiple unifiers
-because the cycle to excise is not uniquely determined.
+`path_weight_cycle_excise` takes `v ∈ butlast w` AND `v ∈ tl w`.
+Those don't pin two distinct positions for `v`: a single occurrence
+at position `p` with `0 < p < length w − 1` satisfies both. OF then
+finds multiple unifiers because the cycle to excise is not uniquely
+determined.
 
-==== Two possible fixes
+**Fix — option A (recommended): strengthen the lemma signature.**
 
-. **Strengthen the lemma signature.** Replace the two membership
-  hypotheses with an explicit position pair:
-+
 ----
 lemma path_weight_cycle_excise:
   assumes "0 < p" "p < q" "q < length w - 1" "w ! p = w ! q"
   assumes "no_pos_cycle n A" "w ∈ walks n k i j"
-  shows "∃w'. path_weight A w ≤ path_weight A w'
+  shows "∃ w'. path_weight A w ≤ path_weight A w'
               ∧ length w' < length w ∧ w' ≠ []
-              ∧ hd w' = hd w ∧ last w' = last w ∧ set w' ⊆ {..<n}"
-----
-+
-The four downstream call sites (838, 1525, 1900, 2044) then need
-to prove the position pair from their own pigeonhole/length context
-— which they all already have implicitly.
-+
-PRO: clean semantics; OF has a unique unifier.
-CON: each call site needs a small witness construction.
-
-. **Replace the lemma body with a direct pigeonhole on pairs.** Skip
-  `butlast`/`tl` membership altogether and quantify over
-  `(p, q) ∈ {0..<length w} × {0..<length w}` with `p < q ∧ w!p = w!q`.
-+
-PRO: removes the `butlast`/`tl` indirection entirely.
-CON: bigger refactor.
-
-==== Recommendation
-Option (1) — minimal blast radius, preserves the existing call sites'
-proof shapes.
-
-==== Risk
-HIGH (mathematical, not just syntactic). Estimated 30–60 min of
-careful proof writing.
-
-=== F5 — `Tropical_Matrices_Full` line 838
-
-----
-*** Failed to finish proof (line 838):
-*** goal (1 subgoal):
-***  1. ⟦Suc p0 ≤ q; Suc p0 < length w; q < length w - Suc 0;
-***      w ! q = w ! Suc p0; v = w ! Suc p0⟧
-***     ⟹ Suc p0 < q
-*** At command "by" (line 838)
+              ∧ hd w' = hd w ∧ last w' = last w
+              ∧ set w' ⊆ {..<n}"
 ----
 
-==== Diagnosis
-The hypothesis is `Suc p0 ≤ q`, not `Suc p0 < q`. They differ when
-`Suc p0 = q`. This is the same root issue as F4: the surrounding
-proof needs to **rule out** `Suc p0 = q` via "two distinct positions
-for v", which the current hypothesis structure does not give.
+The four downstream call sites (838/1874/2044/1525) all already have
+the position pair implicitly in their pigeonhole context — they need a
+small witness construction.
 
-==== Fix
-Falls out of F4 — once we have an explicit `p < q` in the lemma
-signature.
+**Fix — option B:** rewrite `path_weight_cycle_excise` body to do the
+pigeonhole on pairs `(p, q) ∈ {0..<length w}²` directly. Bigger
+refactor.
 
-==== Risk
-LOW (downstream of F4).
+Effort: 30–60 min.
 
-=== F6 — `Tropical_CNO` line 619 / 655
+==== M-838 + M-1874 — pigeonhole (cascade from M-1525)
+
+Both sites have the identical false-as-stated subgoal:
 
 ----
-*** Bad context for command "qed" (line 655 of "Tropical_CNO.thy")
-*** At command "qed" (line 655)
+*** ⟦Suc p0 ≤ q; Suc p0 < length w; q < length w - Suc 0;
+***   w ! q = w ! Suc p0; v = w ! Suc p0⟧
+***  ⟹ Suc p0 < q
 ----
 
-==== Diagnosis
-Current shape (lines 619–655):
+`Suc p0 ≤ q` does not imply `Suc p0 < q` unless `Suc p0 ≠ q`. The
+"distinct positions" rule-out is missing because the surrounding
+proof relies on the (broken) `path_weight_cycle_excise` interface.
+Falls out of M-1525 fix.
+
+==== M-2044 — walks set membership (cascade from M-1525)
+
+Same root: needs the walks-set unfolding that M-1525's strengthened
+interface gives.
+
+==== M-doc-* — 2 doc-antiquotation sites (lines 48, 1666). Cosmetic.
+
+=== `Tropical_CNO` (1 proof site)
+
+==== C-655 — `Bad context for command qed`
+
+Current shape (lines 619-656):
 
 ----
 proof clarify
-  fix i k w assume hi: "i < n" and hw: "w \<in> walks n k i i"
-  show "path_weight (trop_mat_star n A) w \<le> (1 :: tropical)"
-  proof -
-    ... 30 lines ...
-    show ?thesis using le_trans[OF step1 step2] .
-  qed                          (* line 654: closes inner `proof -` *)
-qed                            (* line 655: orphan *)
-----
-
-`proof clarify` already discharges the universally-quantified
-implications and exposes the witnesses as `fix` in the goal context.
-Re-introducing them with a manual `fix i k w assume ...` does not
-match the open block, so the inner `show ... proof - ... qed` either
-drops the wrong frame or leaves the outer `proof clarify` open with
-nothing to close.
-
-==== Fix — pick one
-
-. Drop the manual fix:
-+
-----
-proof clarify
-  fix i k w
-  assume hi: "i < n" and hw: "w \<in> walks n k i i"
-  ... show "path_weight (trop_mat_star n A) w \<le> 1" ...
-qed
-----
-+
-i.e. *one* level of indentation, no inner `proof -` / `qed`.
-
-. Or revert to explicit intro:
-+
-----
-proof (intro allI impI ballI)
-  fix i assume hi: "i < n"
-  fix k w assume hw: "w \<in> walks n k i i"
-  show "path_weight (trop_mat_star n A) w \<le> 1"
+  fix i k w assume hi: "i < n" and hw: "w ∈ walks n k i i"
+  show "path_weight ... ≤ 1"
   proof -
     ...
   qed
 qed
 ----
 
-==== Risk
-LOW — pure Isar structure.
+This session attempted three rewrites (`proof (intro allI impI ballI)`,
+`proof (intro allI impI allI ballI)`, `proof safe`). All produced the
+same Bad-context error. The hidden problem is that **no_pos_cycle_def
+unfolds to four nested binders** (`∀i. i<n ⟶ ∀k. ∀w∈S. P`) and the
+inner `proof - ... qed` block fights the outer block-counting.
 
-== Recovery plan (in order of ease)
+**Fix to try:** flat style — drop the inner `proof -`:
 
-. **F6** — CNO 619/655 (drop manual fix).
-. **F1** — Determinants 81 (`auto simp: image_iff`).
-. **F3** — Matrices_Full 1900 (`by (cases w) auto`).
-. **F4** — Matrices_Full 1525 — _root cause_; strengthen
-  `path_weight_cycle_excise` to take a position pair. Most of the
-  effort.
-. **F5** — Matrices_Full 838 — falls out of F4.
-. **F2** — Matrices_Full 2044 — falls out of F4 (or unfold + `simp`).
+----
+unfolding no_pos_cycle_def
+proof (intro allI impI allI ballI)
+  fix i k w assume hi: "i < n" and hw: "w ∈ walks n k i i"
+  have step1: "path_weight (trop_mat_star n A) w \<le> trop_mat_star n A i i"
+    using path_weight_star_le[OF assms(1) hi hi hw] .
+  have step2: "trop_mat_star n A i i \<le> 1"
+    by ⟨...inline body...⟩
+  show "path_weight (trop_mat_star n A) w \<le> 1"
+    using le_trans[OF step1 step2] .
+qed
+----
 
-== Errata for `FORMAL-PROOFS.adoc` and `HANDOVER_v2.adoc`
+Effort: 15–20 min careful Isar work.
 
-Both documents currently claim "all sorries closed" / "AFP submission
-ready". Those statements were true under Isabelle 2024. They are
-**not currently true under Isabelle 2025-1** because of the six
-failures catalogued above. The body of work is real (>5 600 LOC of
-Isar across the seven theories, zero `sorry`/`oops`/`believe_me` in
-proof bodies) — the regression is purely syntactic / structural under
-the new Isabelle.
+== Recovery plan (in order of value × ease)
 
-Both documents should grow a one-paragraph **Errata 2026-04-26**
-stanza pointing at this file.
+. **D-153/207 type-class investigation** (HIGH value, MEDIUM effort).
+  If this fixes the Determinants type root, 5 more sites likely
+  collapse. Read Isabelle 2025-1 release notes for HOL.Permutations
+  changes.
+. **K-403** — `by blast` → `by force` (LOW effort, verified working).
+. **D-81** — `by auto` → `by metis` (LOW effort).
+. **C-655** — flat-style rewrite of `has_positive_cycle_star`
+  (MEDIUM effort).
+. **M-1525 cycle-excise root** — strengthen lemma signature
+  (HIGH value: 4-for-1, HIGH effort 30–60 min).
+. **K-237/474/575** — per-site investigation (MEDIUM effort each).
+. **Doc-antiquotation cleanup** (10 sites, cosmetic — defer until
+  proofs green).
+
+== Errata for the v1 of this doc and the prior STATE.a2ml
+
+Both said "6 failures, 3 theories, Kleene GREEN". The truth (above)
+is "16 proof failures, 4 theories, Kleene RED ×4". The methodology
+fix is hard-encoded in `STATE.a2ml [maintenance-status]
+methodology-note`: always use `isabelle build_log -H Error <session>`,
+never trust filter on stdout.
 
 == Burrower handoff
 
-This catalogue is the **first real-world test** target for the Proof
-Burrower (`github.com/hyperpolymath/proof-burrower`, private). The
-cycle-excise root (F4) is exactly the kind of "find a mathematical
-home for this goal" task the Burrower swarm was designed for —
-specifically the `Combinatorialist` agent (pigeonhole / position
-arguments) feeding back into the `OrderTheorist` agent (path-weight
-monotonicity).
+Unchanged — the `path_weight_cycle_excise` root (M-1525) is still the
+ideal first real-world test for the Proof Burrower's Combinatorialist
++ OrderTheorist agents. The Determinants type-class root (D-153/207)
+adds a second, complementary test for an Algebraist agent equipped
+with class-instance reasoning.
 
-Integration points: see `proof-burrower/docs/ECHIDNA-INTEGRATION.adoc`,
-particularly `EI-1` (project-aware probe) and `BI-1` (burrower serve
-socket). First-week slice unchanged.
+Integration points unchanged: see `proof-burrower/docs/ECHIDNA-INTEGRATION.adoc`,
+specifically `EI-1` (project-aware probe) and `BI-1` (burrower serve
+socket).

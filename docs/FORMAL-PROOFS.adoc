@@ -7,15 +7,22 @@ Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 
 [NOTE]
 ====
-*Errata 2026-04-26.* This document and `HANDOVER_v2.adoc` claim
-"all sorries closed" / "AFP submission ready" for the Isabelle side.
-That claim was true under Isabelle 2024. Under Isabelle 2025-1 the
-session has six structural / syntactic regressions across three
-theories (`Tropical_Determinants` ×1, `Tropical_Matrices_Full` ×4,
-`Tropical_CNO` ×1). The body of work is intact (5 600+ LOC of Isar,
-zero `sorry`/`oops`/`believe_me` in proof bodies) — the regression
-is purely Isabelle-version drift. See `BUILD-STATUS-2026-04-26.adoc`
-for the verbatim failures, root-cause grouping, and recovery plan.
+*Errata 2026-04-26 (revised).* This document and `HANDOVER_v2.adoc`
+claim "all sorries closed" / "AFP submission ready" for the Isabelle
+side. That claim was true under Isabelle 2024. Under Isabelle 2025-1
+the authoritative `isabelle build_log -H Error Tropical_Semirings`
+shows **16 proof-failure sites** across four theories (`Tropical_
+Determinants` ×7, `Tropical_Kleene` ×4, `Tropical_Matrices_Full` ×4,
+`Tropical_CNO` ×1) plus 10 doc-antiquotation issues (cosmetic). The
+body of work is intact (5 600+ LOC of Isar, zero `sorry`/`oops`/
+`believe_me` in proof bodies) — the regression is Isabelle-version
+drift, with two roots: (a) a likely HOL.Permutations / HOL.Bij class-
+instance change (Determinants 153/207) that may cascade to 5 more
+Determinants sites, and (b) a hypothesis weakness in
+`path_weight_cycle_excise` (Matrices_Full 1525) that cascades to 3
+more Matrices sites. See `BUILD-STATUS-2026-04-26.adoc` (v2
+corrected) for the full verbatim failures, per-site diagnosis, and
+recovery plan in order of value × ease.
 ====
 
 == Introduction

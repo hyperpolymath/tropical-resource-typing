@@ -12,17 +12,25 @@ is here, corrected where wrong, and extended with the CNO work.
 
 [NOTE]
 ====
-*Errata 2026-04-26.* The "0 sorries" column below is correct as a
-*source-text* claim — no `sorry`/`oops`/`believe_me` appear in any
-proof body. However, under Isabelle 2025-1 the session no longer
-builds clean: six structural regressions remain, all syntactic /
-Isabelle-version drift, none mathematical. See
-`BUILD-STATUS-2026-04-26.adoc` for the verbatim failures, the
-single root cause (`path_weight_cycle_excise` hypothesis weakness)
-that explains four of them, and the recovery plan in order of ease.
-The 2026-04-25/26 ECHIDNA + Proof Burrower iteration landed ~22
-fixes (Tropical_Kleene moved AMBER → GREEN this session). 6 more
-fixes remain.
+*Errata 2026-04-26 (revised).* The "0 sorries" column below remains
+correct as a *source-text* claim — no `sorry`/`oops`/`believe_me`
+appears in any proof body. However, under Isabelle 2025-1 the
+session does not build clean: the authoritative `isabelle build_log
+-H Error` shows **16 proof-failure sites** across four theories
+(`Determinants` ×7, `Kleene` ×4, `Matrices_Full` ×4, `CNO` ×1)
+plus 10 doc-antiquotation issues. Two likely roots: (a) a HOL.
+Permutations / HOL.Bij class-instance regression at
+Determinants 153/207 (`'a::{one,ord} not of sort zero`) that may
+cascade to 5 more Determinants sites; (b) a hypothesis weakness in
+`path_weight_cycle_excise` (Matrices_Full 1525) that cascades to 3
+more Matrices sites. See `BUILD-STATUS-2026-04-26.adoc` (v2
+corrected) for the full per-site diagnosis and recovery plan in
+order of value × ease.
+
+The earlier "6 failures, Kleene GREEN" claim in this errata stanza
+and in `STATE.a2ml` came from filtering live build stdout, which
+misses many error categories. The authoritative source is
+`isabelle build_log -H Error <session>`.
 ====
 
 == File Inventory (definitive)
