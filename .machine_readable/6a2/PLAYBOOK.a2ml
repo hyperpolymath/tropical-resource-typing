@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: PMPL-1.0-or-later
+# Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+#
+# PLAYBOOK.a2ml — Operational runbook for routine maintenance, deploys,
+# incident response. Created 2026-04-26 to complete the 6a2 sextet.
+
+[metadata]
+version = "0.1.0"
+last-updated = "2026-04-26"
+schema = "6a2/PLAYBOOK"
+
+[startup-checklist]
+# Run at the start of every session. The brief explicitly required this
+# (\"Verify before claim\").
+steps = [
+  "1. coordination.k9 cap detection: ./tools/check-chapel-bridge.sh + check echidna binary + check julia version",
+  "2. isabelle build_log -H Error Tropical_Semirings  (authoritative inventory; never trust prior STATE.a2ml without re-verification)",
+  "3. cross-check inventory delta vs STATE.a2ml [theories] block; if drift: STOP, surface to user, ask whether to update STATE first",
+  "4. read MEMORY.md / CLAUDE.md and the project-specific CLAUDE.md if present",
+  "5. confirm /tmp has free space (≥ 500 MB; Isabelle session heaps + Burrower probe dirs)",
+]
+
+[swarm-attempt-runbook]
+# How to drive a failing proof through the Burrower swarm.
+prerequisites = [
+  "EI-1 in echidna: --project-root flag (landed 2026-04-26)",
+  "BI-1 in burrower: serve socket (landed 2026-04-26)",
+  "burrower built: cargo build --release in proof-burrower/",
+  "echidna built: cargo build -p echidna --bin echidna in echidna/",
+  "Optional: tools/julia-oracle.jl for numerical pre-check",
+]
+steps = [
+  "1. Identify a CURRENT failing site via isabelle build_log -H Error (NOT from prior STATE.a2ml — file may have evolved)",
+  "2. Extract a self-contained probe: lemma + statement + the 'by ...' tactic that's failing",
+  "3. (optional) Build an oracle descriptor: tests/oracle-<short-name>.a2ml with [oracle-input] for tropical-determinant family",
+  "4. burrower attempt '<probe text>' --project-root <repo> --sandbox bwrap --ledger /tmp/burrow-ledger.jsonl --oracle .../julia-oracle.jl --oracle-descriptor <descriptor>",
+  "5. Watch which specialist closes (or fails to close) the probe. 10-min wall-clock budget per attempt.",
+  "6. Inspect ledger: burrower ledger recent --path /tmp/burrow-ledger.jsonl",
+  "7. If swarm closed: apply the same fix in the source file; re-run isabelle build_log -H Error for the canonical delta",
+  "8. If swarm failed: log the anti-pattern in docs/SWARM-SESSION-<date>.adoc; do NOT manually apply known fixes as a face-saving move",
+]
+post-conditions = [
+  "Ledger has ≥ 1 entry citing a specialist by name",
+  "STATE.a2ml [maintenance-status] updated with new build_log timestamp + failure count",
+  "Session report mentions every specialist attempt outcome (success / fail / skip / oracle-block)",
+]
+
+[oracle-runbook]
+# Standalone Julia-oracle invocation (for manual lemma-statement
+# triage outside the swarm).
+steps = [
+  "1. Build a descriptor at tests/oracle-<lemma>.a2ml with [oracle-input] (or [oracle-fuzz] for adversarial)",
+  "2. cd to the repo (julia --project=. needs Manifest.toml visible)",
+  "3. julia --project=. tools/julia-oracle.jl tests/oracle-<lemma>.a2ml",
+  "4. Read the verdict line: agree | disagree | inapplicable | fuzz-clean | fuzz-counter",
+  "5. If disagree: the LEMMA STATEMENT is wrong, NOT the proof. Don't try to prove it; fix the statement.",
+]
+
+[chapel-runbook]
+# When/how to install Chapel for the parallel-tropical proof family.
+steps = [
+  "1. Confirm cap:chapel-2 is consumed by some proof file (today: nothing under proofs/parallel-tropical/, so Chapel is unneeded)",
+  "2. Download official Fedora 43 RPM: curl -L -o /tmp/chapel-2.8.0-1.fc43.x86_64.rpm 'https://github.com/chapel-lang/chapel/releases/download/2.8.0/chapel-2.8.0-1.fc43.x86_64.rpm'",
+  "3. On Kinoite/rpm-ostree: sudo rpm-ostree install /tmp/chapel-2.8.0-1.fc43.x86_64.rpm  (queues for next reboot)",
+  "4. After reboot: chpl --version  + ./tools/check-chapel-bridge.sh  (should report 'chapel: 2.8.0')",
+  "5. Update [verified-toolchains] in ECOSYSTEM.a2ml chapel block",
+]
+
+[release-runbook]
+# Cutting a snapshot release of the formalisation.
+prerequisites = [
+  "isabelle build -d . Tropical_Semirings exits 0 (i.e. zero proof failures)",
+  "panic-attack assail clean on .thy files",
+  "STATE.a2ml total-proof-failure-sites = 0",
+  "All session reports merged",
+]
+
+[incident-runbook]
+# What to do when a previously-green build goes red.
+triage = [
+  "1. isabelle build_log -H Error Tropical_Semirings  (NEVER trust stdout)",
+  "2. git log --oneline -10  (which commit broke it?)",
+  "3. git bisect if root unclear",
+  "4. open an incident note in docs/INCIDENT-<YYYY-MM-DD>.adoc",
+  "5. update STATE.a2ml [blockers-and-issues] with the new failure",
+]

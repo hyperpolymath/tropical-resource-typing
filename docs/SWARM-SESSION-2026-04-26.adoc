@@ -1,0 +1,312 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= Swarm Dogfood Session — 2026-04-26 (afternoon)
+Jonathan D.A. Jewell (hyperpolymath)
+v1.0, 2026-04-26
+:toc:
+:toc-placement: preamble
+
+[abstract]
+First production load test of Proof Burrower + Echidna + Julia oracle +
+sandbox layer against tropical-resource-typing's real proof-failure
+inventory. Per the brief: **the headline deliverable is the swarm
+leaving artefacts on a real proof attempt, not a closed-proof count**.
+This report's honesty about what was load-bearing vs ceremonial is the
+deliverable.
+
+== Earlier-today context (discovered at session-close)
+
+This is the *afternoon* swarm-dogfood session. Discovered at commit time:
+**4 unpushed commits from the morning** had already (a) closed 12 of
+the 16 proof-failure sites that the brief took as the target inventory,
+and (b) added 3 of the 4 missing 6a2 files. Specifically, the morning
+commits were:
+
+* `34ae52e` — fix(Tropical_CNO): close 4 more sites (triangle NegInf
+  cases, CNO close conditional, ge_id 1=Fin0)
+* `d00d139` — fix(Tropical_Semirings): close most CNO drift, hoist
+  sum_le_const + trop_mat_pow_n_le_star
+* `e0d95e9` — fix(Tropical_Semirings): close Det/Kleene/Matrices/CNO
+  regressions, add ordered_ab_semigroup_add
+* `1cb03e9` — fix(Tropical_Determinants): close type-class regression
+  at 153/207
+
+So the brief's "16 sites including K-403" baseline was already obsolete
+by the time the brief was being written. The current authoritative
+build_log shows ~5 sites remaining, all in CNO (174, 462, 586, 783,
+860). My session contribution is **foundation work** (EI-1, BI-1,
+oracle, sandbox, parser fix, lazy Chapel, 6a2 sextet completion +
+SWARM-SESSION report); the morning session contributed **proof
+repair**.
+
+This is itself the discovery-of-staleness pattern the brief warned
+about — even within a single day, both STATE.a2ml and the brief itself
+can drift from the live repo state. Verifying the
+`isabelle build_log -H Error` inventory at session-OPEN (not just
+session-close) is the lesson, now hard-encoded in
+`AGENTIC.a2ml [hooks].on-session-open`.
+
+== TL;DR
+
+* **Foundation landed**: EI-1 (echidna `--project-root`), BI-1 (burrower
+  `serve` socket), Julia oracle with adversarial fuzz, sandbox plumbing
+  through `--sandbox bwrap`, lazy-gate Chapel inclusion, 6a2 sextet
+  completion.
+* **Headline swarm dogfood**: 12 specialist attempts across 3
+  specialists (Algebraist, OrderTheorist, Combinatorialist) on a
+  tropical-flavoured probe; **0 closed proofs, 12 ledger entries**.
+* **Critical bug discovered & fixed inline**: `run_probe`'s
+  success/failure marker was stdout-only; echidna writes its verdict to
+  stderr, so every attempt looked "inconclusive" and was demoted to a
+  `generic-failure` anti-pattern. Fix shipped in this session
+  (`crates/burrower-core/src/attempt.rs:run_probe` now scans both
+  streams + the exit code).
+* **Brief premise (K-403 as target) was stale**: the morning's STATE
+  inventory referenced `Tropical_Kleene.thy:403`, which no longer
+  exists. Honest substitution to a current-failing site
+  (`walk_concat_nonempty` shape) was the right move; not silently
+  retro-fitting the missing line was the right move.
+* **Swarm load-bearing assessment**: load-bearing for *routing*
+  (specialists engaged, ledger captured every attempt with structured
+  Approach + Result + Learning blocks) but **NOT** load-bearing for
+  *fix discovery* in this session, because the parser bug masked all
+  real failure diagnostics. With the inline fix, the swarm is
+  load-bearing for fix discovery starting next session.
+
+== Inventory delta
+
+[cols="2,1,1,3", options="header"]
+|===
+| Site | Before | After | Notes
+
+| EI-1 (`echidna --project-root`)         | unimplemented | landed
+| Verified empirically — temp `ROOT` correctly declares parent session
+  detected from project ROOT, `-d <project_root>` forwarded.
+
+| BI-1 (`burrower serve --socket`)        | unimplemented | landed
+| Verified via `socat` — ping/unknown/malformed all roundtrip with
+  proper JSON envelope.
+
+| Julia oracle                            | doesn't exist | landed
+| `impl/tropical/TropicalDeterminant.jl` + `tools/julia-oracle.jl`;
+  three smoke fixtures (correct/wrong/fuzz) all behave correctly;
+  verified blocking a wrong-determinant lemma BEFORE specialists touch it.
+
+| Safe-learning (b) sandbox               | unwired        | wired
+| `--sandbox bwrap\|podman` flag forwarded burrower → echidna; echidna
+  reuses the existing `executor::sandbox` machinery (no reimplementation).
+
+| Safe-learning (c) adversarial test gen  | unimplemented | landed
+| `[oracle-fuzz]` block in oracle descriptors; 50-trial random matrix
+  generation against ground-truth permutation enumeration.
+
+| Chapel install (rpm-ostree layer)       | not installed | RPM downloaded, layering deferred to user
+| Lazy-gate scaffolding active; standard build is Chapel-independent.
+
+| 6a2 sextet                              | 2 of 6 files  | 6 of 6
+| Added META + AGENTIC + NEUROSYM + PLAYBOOK; rule was being violated.
+
+| `coordination.k9` for tropical-rt       | absent        | present
+| Capability declarations for cap:isabelle-2025 / cap:julia-1.12 /
+  cap:echidna-cli / cap:chapel-2 / cap:bwrap / cap:podman.
+
+| `run_probe` parser bug                  | present       | fixed
+| Discovered + patched in same session; was the root cause of the
+  12-attempt zero-success result.
+
+| Closed proofs                           | 16 failures   | 16 failures
+| **No proofs were closed** by this session — all proof-repair work
+  was foundation/infrastructure. Honest read: the dogfood was foundation
+  work, not proof work.
+|===
+
+== Ledger delta
+
+The headline swarm attempt produced **12 ledger entries**, all
+classified `pattern_kind = anti-pattern`:
+
+[cols="3,2,2,4", options="header"]
+|===
+| Specialist        | Tactic                                      | Time
+| Original verdict (parser-bug-affected)
+
+| Algebraist        | `by simp`                                  | 47s
+| `simp-tactic-fails-generic-failure` — *was actually `Unable to
+  figure out induct rule` (revealed by direct echidna invocation
+  after parser fix)*
+
+| Algebraist        | `by auto`                                  | 58s
+| `auto-tactic-fails-generic-failure` — same root cause
+
+| Algebraist        | `by (simp add: algebra_simps)`             | 47s
+| `algebra-simps-tactic-fails-generic-failure`
+
+| Algebraist        | `by (simp add: field_simps)`               | 43s
+| `ring-arith-tactic-fails-generic-failure`
+
+| OrderTheorist     | `by simp`                                  | 43s
+| `simp-tactic-fails-generic-failure`
+
+| OrderTheorist     | `by (rule order_trans)`                    | 59s
+| `order-trans-tactic-fails-generic-failure`
+
+| OrderTheorist     | `by (auto intro: order_trans)`             | 41s
+| `order-auto-tactic-fails-generic-failure`
+
+| OrderTheorist     | `by (auto simp: subset_iff)`               | 42s
+| `subset-decompose-tactic-fails-generic-failure`
+
+| Combinatorialist  | `by simp`                                  | 50s
+| `simp-tactic-fails-generic-failure`
+
+| Combinatorialist  | `by auto`                                  | 44s
+| `auto-tactic-fails-generic-failure`
+
+| Combinatorialist  | `by (induction rule: finite_induct) auto`  | 41s
+| `induction-finite-tactic-fails-generic-failure`
+
+| Combinatorialist  | `by (induction xs) auto`                   | 40s
+| `induction-list-tactic-fails-generic-failure`
+|===
+
+* **Consensus home**: NONE — not a `swarm` invocation; this was an
+  `attempt`-only run (no corpus index loaded). The `swarm` subcommand
+  produces consensus homes; `attempt` only produces tactic outcomes.
+  Future dogfood should run `swarm` first to get homes, THEN `attempt`
+  with the home as a candidate. Logged as a workflow improvement.
+* **Anti-pattern**: every attempt (12 of 12). The dominant
+  generalisation: "Specialist X fails with `<tactic>` (generic-failure);
+  consider <suggestion>". With the parser fix, those `generic-failure`
+  classifications will become structured (`tactic-mismatch`,
+  `undefined-reference`, `structural-mismatch`).
+* **Boundary-object**: 3 specialists co-engaged on the same probe,
+  which is itself a boundary-object signal (no domain dominated). The
+  goal touched algebra (`length`), order (`>`), and finite structure
+  (`set ws`).
+
+== Coverage delta
+
+* **Capability × protocol matrix** (ask #5): NOT IMPLEMENTED this
+  session. Deferred per scope agreement. The
+  `tests/coverage/cap-protocol-matrix.a2ml` file does not exist.
+* **VeriSimDB E-R matrix** (ask #6): NOT IMPLEMENTED this session.
+  Deferred per scope agreement. The repo's VeriSimDB instance state is
+  out of date relative to the current `coordination.k9` declaration;
+  re-tally needs its own session.
+* **Proto-objects + identity proofs registry** (ask #9): NOT
+  IMPLEMENTED. Depends on ≥2 swarm-closed lemmas; not yet earned.
+
+== Capability discovered / missing
+
+[cols="2,1,3", options="header"]
+|===
+| Capability                 | State after session | Notes
+
+| `cap:isabelle-2025`        | present (verified)  | `Isabelle2025-1` at `/usr/local/bin/isabelle`
+| `cap:julia-1.12`           | present (verified)  | `1.12.5` via opsm shim
+| `cap:echidna-cli`          | present + extended  | Now exposes `--project-root` + `--sandbox`
+| `cap:burrower-cli`         | present + extended  | Now exposes `serve`, `--project-root`, `--sandbox`, `--oracle*`
+| `cap:bwrap`                | present (discovered) | `/usr/bin/bwrap`; not yet exercised on `/var/mnt/eclipse` symlinked mount
+| `cap:podman`               | present (discovered) | `/usr/bin/podman`
+| `cap:chapel-2`             | absent (deferred)    | Official Fedora 43 RPM downloaded to `/tmp/chapel-2.8.0-1.fc43.x86_64.rpm`; `sudo rpm-ostree install` left to user
+| `cap:guile`                | absent (low-priority) | Bash sibling of `chapel-bridge.scm` covers the runtime path
+|===
+
+== Critical bugs surfaced this session
+
+. **`run_probe` parser scope** (`crates/burrower-core/src/attempt.rs`)
+  — original code matched success/failure markers in `stdout` only.
+  Echidna's `OutputFormatter` writes `✗ Proof verification failed` to
+  STDERR, so the swarm couldn't tell real failures from inconclusive
+  output. **Fixed in this session** — parser now scans both streams +
+  falls back on exit code.
+
+. **STATE.a2ml stale within the same day** (process bug, not code).
+  The morning STATE referenced `Tropical_Kleene.thy:403` as K-403; by
+  afternoon that line had moved during proof-repair edits. ADR-002
+  amended in `META.a2ml`: re-run `isabelle build_log -H Error` at
+  session-START, not just session-close.
+
+. **`generate_probe` always uses `imports Main`** (known limitation,
+  unfixed). Burrower's probe wrapper hardcodes `imports Main`, so even
+  with EI-1 the swarm cannot probe goals referencing project theories
+  like `walk_concat`. EI-1 helps echidna directly; the matching change
+  to `generate_probe` (per-goal imports list) is the obvious follow-up.
+
+. **`SocketGuard` doesn't fire on SIGTERM** (known limitation). Rust's
+  Drop only runs on normal teardown. The bind-side `remove_file` is
+  defensive enough to handle stale sockets, so this is informational.
+  A signal handler would be a small future improvement.
+
+== Honest swarm-load-bearing assessment
+
+**Was the swarm load-bearing on the headline goal?**
+
+* **For routing and observation**: YES. Three specialists engaged on
+  the probe, each ran its playbook, the ledger captured 12 structured
+  entries with timestamps, tactic scripts, and failure classifications.
+  Without the swarm, this session would have produced no machine-
+  readable record of what tactics were tried.
+
+* **For fix discovery**: NO. Zero proofs closed. The parser bug
+  meant every attempt was misclassified as `generic-failure` instead of
+  the real underlying issue (`Unable to figure out induct rule` for the
+  Combinatorialist's `induction xs` attempt, etc.). With the parser
+  fixed in-session, the next swarm run will produce actionable
+  anti-patterns, but THIS session's attempts did not.
+
+* **For the meta-question — does Burrower's specialist abstraction
+  match what proof repair actually needs?** Mixed.
++
+The 4-tactic playbooks per specialist are too small to cover the real
+failure modes seen in the inventory. Real fixes I've personally
+applied to this repo over the past few weeks involved tactics like:
++
+- `by (subst foo) (auto simp: bar_def)` — substitution + simp
+- `by (cases w) (auto simp: walk_def)` — case-split + simp
+- `by (metis append_Cons append_Nil)` — metis with specific lemma names
+- `unfolding foo_def using h1 h2 by simp` — explicit unfold + use
++
+None of those shapes are in any current specialist playbook. The
+swarm's value will become real once playbooks are extended (or once
+ECHIDNA's `suggest` verb lands per EI-2 and the swarm composes
+playbooks from ECHIDNA's suggestions).
+
+* **Overall verdict**: **the dogfood was foundation work, not proof
+  work**. The session made the swarm USABLE for the next dogfood; it
+  did not USE the swarm to repair proofs. That is still a successful
+  load-bearing test for "the swarm leaving real artefacts" — the
+  artefacts exist and are in `/tmp/burrow-swarm-headline-2026-04-26.jsonl`.
+
+**What needs to change before the next dogfood**:
+
+. Apply the `run_probe` parser fix (already in this session's commit).
+. Extend `generate_probe` with a per-goal imports list so probes can
+  reference project theories.
+. Extend specialist playbooks with the substitution / case-split /
+  metis-with-names patterns that real proof repair uses.
+. Run `burrower swarm` (corpus-based) BEFORE `burrower attempt` so
+  consensus-home signals enter the ledger.
+. Index a corpus of the project's existing `.thy` files so the
+  swarm has lemma neighbours to recommend.
+
+== Reporting protocol bullets — explicit answers
+
+* **Inventory delta** — see § Inventory delta (foundations landed; no
+  proofs closed).
+* **Ledger delta** — see § Ledger delta (12 anti-patterns; 0
+  consensus homes; boundary-object signal across 3 specialists).
+* **Coverage delta** — see § Coverage delta (cap × proto and E-R
+  matrices explicitly deferred).
+* **Capability discovered/missing** — see § Capability discovered.
+* **Honest swarm-load-bearing assessment** — see § Honest swarm-
+  load-bearing assessment.
+
+== Provenance
+
+Session run 2026-04-26 afternoon (UK), against
+`github:hyperpolymath/tropical-resource-typing` (commit at session-open
+recorded in STATE.a2ml git log) plus
+`github:hyperpolymath/proof-burrower` (private) and
+`github:hyperpolymath/echidna`. EI-1 + BI-1 references:
+`proof-burrower/docs/ECHIDNA-INTEGRATION.adoc`. Ledger artefact:
+`/tmp/burrow-swarm-headline-2026-04-26.jsonl` (12 entries).

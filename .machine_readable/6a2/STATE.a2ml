@@ -6,9 +6,21 @@
 
 [metadata]
 project = "tropical-resource-typing"
-version = "0.2.0"
-last-updated = "2026-04-26"
+version = "0.3.0"
+last-updated = "2026-04-26T17:30:00Z"
 status = "active"  # active | paused | archived
+# Bumped 0.2 → 0.3 at session-close 2026-04-26 (afternoon swarm dogfood):
+# - EI-1 (echidna --project-root) landed in github:hyperpolymath/echidna
+# - BI-1 (burrower serve socket) landed in github:hyperpolymath/proof-burrower
+# - Julia oracle (impl/tropical/TropicalDeterminant.jl + tools/julia-oracle.jl)
+#   wired with adversarial fuzz support (safe-learning c)
+# - 6a2 sextet completed (META + AGENTIC + NEUROSYM + PLAYBOOK added; was 2/6)
+# - coordination.k9 + tools/chapel-bridge.scm + check-chapel-bridge.sh
+# - Honest finding: STATE.a2ml's morning K-403 inventory was STALE by afternoon —
+#   Tropical_Kleene.thy now has an Outer-lexical error at line 206 that prevents
+#   later sites from being checked at all. K-403 as named no longer exists.
+# - Headline swarm dogfood: see docs/SWARM-SESSION-2026-04-26.adoc for honest
+#   load-bearing assessment.
 
 [project-context]
 name = "tropical-resource-typing"
@@ -165,13 +177,43 @@ first-real-test    = "Tropical_Matrices_Full path_weight_cycle_excise root"
 next-handoff-step  = "Wire EI-1 (project-aware probe) + BI-1 (burrower serve socket); see proof-burrower/docs/ECHIDNA-INTEGRATION.adoc"
 
 [maintenance-status]
-last-run-utc = "2026-04-26T14:24:30Z"
-last-report = "docs/BUILD-STATUS-2026-04-26.adoc (corrected v2) + cycle-excise refactor (this commit)"
-last-result = "RED — 16 proof-failure sites (same count as baseline, but different sites). The original cycle-excise root sites (Matrices 838/1525/1874/2044) are CLOSED — replaced by 4 surrounding tactical issues. The use-before-define bug for `no_pos_cycle` is also closed. Kleene 237 closed, 272 emerged. Det 7 unchanged, CNO 655 unchanged."
+last-run-utc = "2026-04-26T17:00:00Z"
+last-report = "docs/SWARM-SESSION-2026-04-26.adoc (afternoon swarm-dogfood session)"
+last-result = """
+RED — inventory has shifted again since the morning. Authoritative
+`isabelle build_log -H Error Tropical_Semirings` (afternoon, 2026-04-26)
+shows the dominant failure pattern is now in Tropical_CNO.thy
+(Failed-to-finish-proof at lines 174, 462, 586, 783; Failed-to-apply
+initial-proof-method at 860) PLUS Outer-lexical errors in
+Tropical_Kleene at line 206 and Tropical_CNO at line 677 that block
+later sites from being checked. K-403 as named in the morning's STATE
+no longer exists at line 403; the file evolved through the morning's
+work. Headline swarm dogfood targeted a tropical-flavoured probe
+(walk_concat_nonempty shape) — see docs/SWARM-SESSION-2026-04-26.adoc.
+"""
 last-result-source = "isabelle build_log -H Error Tropical_Semirings (authoritative — reads heap, not stdout)"
-open-warnings = 10  # doc-antiquotation
-open-failures = 16  # proof sites — same count, but root-cycle-excise depth is closed
-methodology-note = "Always use `isabelle build_log -H Error <session>` after a build to get the authoritative error count. Filtering on `***` lines from stdout misses many sites because some errors are reported with a different prefix structure."
+open-warnings = "see SWARM-SESSION-2026-04-26.adoc — doc-antiquotation count needs re-tally with new inventory"
+open-failures = "see SWARM-SESSION-2026-04-26.adoc — counts shifted with the file edits during the morning"
+methodology-note = """
+TWO discoveries about staleness this session:
+(1) [original] Always use `isabelle build_log -H Error <session>` after
+    a build — stdout filtering missed ~3× of failures.
+(2) [new 2026-04-26-afternoon] Even the morning's heap-reading
+    inventory drifts within the same DAY when the .thy files are being
+    edited during proof-repair sessions. ALWAYS re-run the heap reader
+    at session-start, not just session-close. ALWAYS re-verify line
+    numbers before targeting a specific failure site.
+"""
+
+[swarm-dogfood-2026-04-26]
+ei-1 = "implemented + verified empirically (ROOT-generation correct; live build of parent session triggered)"
+bi-1 = "implemented + verified (ping/unknown/malformed roundtrip via socat)"
+oracle = "implemented + verified (correct/wrong/fuzz fixtures all behave correctly)"
+sandbox = "wired through CLI; bwrap/podman both detected as installed; sandbox-fail-soft via --sandbox none"
+chapel = "deferred via lazy-gate (RPM downloaded to /tmp; rpm-ostree layering left to user)"
+6a2-sextet = "completed (was 2/6, now 6/6)"
+headline-swarm-attempt = "in flight at session-close; see SWARM-SESSION-2026-04-26.adoc"
+honest-assessment = "see SWARM-SESSION-2026-04-26.adoc § Honest swarm-load-bearing assessment"
 
 [cycle-excise-refactor-2026-04-26]
 # Real progress this iteration even though headline count unchanged.
