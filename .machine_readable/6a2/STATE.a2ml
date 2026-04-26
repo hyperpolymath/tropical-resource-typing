@@ -165,13 +165,29 @@ first-real-test    = "Tropical_Matrices_Full path_weight_cycle_excise root"
 next-handoff-step  = "Wire EI-1 (project-aware probe) + BI-1 (burrower serve socket); see proof-burrower/docs/ECHIDNA-INTEGRATION.adoc"
 
 [maintenance-status]
-last-run-utc = "2026-04-26T13:14:08Z"
-last-report = "docs/BUILD-STATUS-2026-04-26.adoc (corrected v2)"
-last-result = "RED — 16 proof-failure sites + 10 doc-antiquotation sites across 5 theories. RED: Determinants ×7, Kleene ×4, Matrices_Full ×4, CNO ×1. AMBER: Tropical_v2 ×0 proof + ×1 doc. GREEN: Tropical, Tropical_Ordinal."
+last-run-utc = "2026-04-26T14:24:30Z"
+last-report = "docs/BUILD-STATUS-2026-04-26.adoc (corrected v2) + cycle-excise refactor (this commit)"
+last-result = "RED — 16 proof-failure sites (same count as baseline, but different sites). The original cycle-excise root sites (Matrices 838/1525/1874/2044) are CLOSED — replaced by 4 surrounding tactical issues. The use-before-define bug for `no_pos_cycle` is also closed. Kleene 237 closed, 272 emerged. Det 7 unchanged, CNO 655 unchanged."
 last-result-source = "isabelle build_log -H Error Tropical_Semirings (authoritative — reads heap, not stdout)"
 open-warnings = 10  # doc-antiquotation
-open-failures = 16  # proof sites
+open-failures = 16  # proof sites — same count, but root-cycle-excise depth is closed
 methodology-note = "Always use `isabelle build_log -H Error <session>` after a build to get the authoritative error count. Filtering on `***` lines from stdout misses many sites because some errors are reported with a different prefix structure."
+
+[cycle-excise-refactor-2026-04-26]
+# Real progress this iteration even though headline count unchanged.
+landed = [
+  "path_weight_cycle_excise + path_weightm_cycle_excise: refactored signatures from `v ∈ butlast w ∧ v ∈ tl w` (mathematically too weak — counter-example w=[a,v,b]) to explicit position pair (0 < p, p < q, q < length w, w!p = w!q). The lemma now provably matches its claim.",
+  "Both call sites updated to derive position pair from `not_distinct_decomp` hdecomp; xs=[] case handled inline with direct excision proof using `path_weight(m)_append`.",
+  "Added `path_weightm_append` lemma (mirror of `path_weight_append`) — was missing from min-plus side, replaced 4 incorrect 2-arg `path_weightm_snoc` calls.",
+  "Moved `no_pos_cycle` definition forward (was at line 1438 used at line 846) — fixed the use-before-define bug that was making OF resolution see `?no_pos_cycle` as a schematic.",
+  "Rewrote `hw''_in: w'' ∈ walks ...` proofs to use `unfolding walks_def using ... by simp` pattern rather than `proof (intro conjI)` (the latter doesn't apply because walks_def yields a Collect set).",
+  "Various blast-loop fixes: `set_drop_subset walk_vertices_bounded ... by blast` → `by (meson ... subset_trans)`; `take_p_ne` proofs now `(cases w) auto` to chain `0 < p → length w > 0 → w ≠ []`.",
+]
+remaining-after-cycle-excise = [
+  "Matrices 958, 1634, 2016, 2187 — surface-tactical issues exposed by the refactor (arith with min, walks set membership, IH application). Each is a small targeted fix but ~5 sub-failures deep — the pattern of churn this session showed each fix exposes the next.",
+  "Det 7 + Kleene 4 + CNO 1 unchanged — these are independent of cycle-excise and need separate work (see issues block).",
+]
+recommendation = "Hand cycle-excise tail to next session with fresh context. The remaining Matrices sites are mechanical but tedious; the Determinants + Kleene roots (type-class + sum_mono) are independent investigations."
 
 [ecosystem]
 part-of = ["nextgen-languages", "type-theory research"]

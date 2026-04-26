@@ -633,6 +633,33 @@ text \<open>
   Needed for @{text tropm_mat_pow_eq_sum_walks}.
 \<close>
 
+lemma path_weightm_append:
+  "\<lbrakk> w1 \<noteq> []; w2 \<noteq> [] \<rbrakk> \<Longrightarrow>
+   path_weightm A (w1 @ w2) = path_weightm A (w1 @ [hd w2]) * path_weightm A w2"
+proof (induction w1)
+  case Nil then show ?case by simp
+next
+  case (Cons u rest)
+  show ?case
+  proof (cases rest)
+    case Nil
+    have "path_weightm A (u # w2) = A u (hd w2) * path_weightm A w2"
+      using Cons.prems(2) by (cases w2) auto
+    then show ?thesis using Nil by simp
+  next
+    case (Cons v t)
+    have "path_weightm A ((u # v # t) @ w2)
+          = A u v * path_weightm A ((v # t) @ w2)"
+      by simp
+    also have "\<dots> = A u v * (path_weightm A ((v # t) @ [hd w2]) * path_weightm A w2)"
+      using Cons.IH Cons.prems(2) local.Cons by simp
+    also have "\<dots> = path_weightm A ((u # v # t) @ [hd w2]) * path_weightm A w2"
+      by (simp add: mult.assoc local.Cons)
+    finally show ?thesis
+      using local.Cons \<open>rest = v # t\<close> by simp
+  qed
+qed
+
 lemma path_weightm_snoc:
   "w \<noteq> [] \<Longrightarrow> path_weightm A (w @ [v]) = path_weightm A w * A (last w) v"
 proof (induction w)
@@ -797,52 +824,51 @@ proof -
     by (simp add: trop_walks_sum_def)
 qed
 
+(* MOVED FORWARD 2026-04-26: definition was at line 1438, used at line 846+.
+   Under Isabelle 2025 the use-before-define caused `no_pos_cycle` to be
+   treated as a schematic free variable, breaking OF resolution at every
+   call site. *)
+definition no_pos_cycle :: "nat \<Rightarrow> trop_mat \<Rightarrow> bool" where
+  "no_pos_cycle n A \<equiv>
+     \<forall> i < n. \<forall> k. \<forall> w \<in> walks n k i i. path_weight A w \<le> (1 :: tropical)"
+
 text \<open>
   Cycle excision: if a walk has a repeated vertex (i.e.\ contains a cycle),
   we can excise the cycle.  Under the no-positive-cycle assumption
   (@{text no_pos_cycle}), the excised walk has at least as high a weight.
 \<close>
 
+(* CORRECTED 2026-04-26: the previous formulation took
+     `v ∈ set (butlast w)` and `v ∈ set (tl w)` as hypotheses, but those
+     do NOT pin two distinct positions for v (counter-example: w = [a,v,b]
+     where v sits at the unique middle position is in both butlast and tl).
+     OF then found multiple unifiers and the internal pigeonhole could not
+     close `Suc p0 ≤ q ⟹ Suc p0 < q`. The lemma is now stated directly in
+     terms of the position pair (p, q), which is what every call site
+     already has from a `not_distinct_decomp` step. *)
 lemma path_weight_cycle_excise:
-  assumes hv1: "v \<in> set (butlast w)"
-  assumes hv2: "v \<in> set (tl w)"
-  assumes hnpc: "no_pos_cycle n A"
-  assumes hw_in: "w \<in> walks n k i j"
+  assumes hp_pos: "0 < p"
+  assumes hpq:    "p < q"
+  assumes hq_lt:  "q < length w"
+  assumes hpq_eq: "w ! p = w ! q"
+  assumes hnpc:   "no_pos_cycle n A"
+  assumes hw_in:  "w \<in> walks n k i j"
   shows "\<exists> w'. path_weight A w' \<ge> path_weight A w \<and>
                length w' < length w \<and>
                w' \<noteq> [] \<and>
                hd w' = hd w \<and> last w' = last w \<and>
                set w' \<subseteq> {..<n}"
 proof -
-  (* Find indices p < q with w!p = w!q = v, p > 0 (from tl), q < length w - 1 (from butlast) *)
-  have hne: "w \<noteq> []" using hv1 by auto
-  from hv1 obtain q where hq_bound: "q < length (butlast w)" and hq_val: "(butlast w) ! q = v"
-    by (meson in_set_conv_nth)
-  from hv2 obtain p0 where hp0_bound: "p0 < length (tl w)" and hp0_val: "(tl w) ! p0 = v"
-    by (meson in_set_conv_nth)
-  (* Convert to w-indices *)
-  let ?p = "Suc p0"
-  let ?q = "q"
-  have hp_lt: "?p < length w" using hp0_bound by simp
-  have hp_val: "w ! ?p = v" using hp0_val nth_tl[OF hp0_bound] by simp
-  have hq_lt: "?q < length w - 1" using hq_bound by simp
-  have hq_val': "w ! ?q = v" using hq_val nth_butlast[OF hq_bound] by simp
-  (* Build two cases: either p < q (good) or q ≤ p; in either case get p' < q' *)
-  obtain p' q' where hp': "p' < length w" "w ! p' = v" "0 < p'"
-                 and hq': "q' < length w - 1" "w ! q' = v"
-                 and hpq: "p' < q'"
-  proof (cases "?p \<le> ?q")
-    case True
-    thus ?thesis
-      using hp_lt hp_val hq_lt hq_val'
-      by (intro that[of ?p ?q]) auto
-  next
-    case False
-    hence "?q < ?p" by simp
-    thus ?thesis
-      using hp_lt hp_val hq_lt hq_val'
-      by (intro that[of ?q ?p]) auto
-  qed
+  define v where v_def: "v = w ! p"
+  have hp_lt: "p < length w" using hpq hq_lt by simp
+  (* Bind to the names the original proof body used: p' = p, q' = q. *)
+  define p' where p'_def: "p' = p"
+  define q' where q'_def: "q' = q"
+  have hp': "p' < length w" "w ! p' = v" "0 < p'"
+    using hp_lt v_def hp_pos by (simp_all add: p'_def)
+  have hq': "q' < length w" "w ! q' = v"
+    using hq_lt hpq_eq v_def by (simp_all add: q'_def)
+  have hpq: "p' < q'" using hpq by (simp add: p'_def q'_def)
   (* Witness: excise the cycle between positions p' and q' *)
   let ?w' = "take p' w @ drop q' w"
   have hw'_hd: "hd ?w' = hd w"
@@ -874,9 +900,9 @@ proof -
     (* drop p' w is nonempty since p' < length w *)
     have drop_p_ne: "drop p' w \<noteq> []"
       using hp'(1) by simp
-    (* take p' w is nonempty since 0 < p' *)
+    (* take p' w is nonempty since 0 < p' AND p' < length w *)
     have take_p_ne: "take p' w \<noteq> []"
-      using hp'(3) by simp
+      using hp'(1) hp'(3) by (cases w) auto
     (* hd (drop p' w) = w ! p' = v *)
     have hd_drop_p: "hd (drop p' w) = v"
       using hp'(1,2) by (simp add: hd_drop_conv_nth)
@@ -901,14 +927,14 @@ proof -
       by (metis hd_drop_conv_nth Suc_less_eq hq'(1))
     (* Decompose drop p' w at (q'-p'): drop p' w = take (q'-p') (drop p' w) @ drop q' w *)
     have decomp_drop_p: "drop p' w = take (q'-p') (drop p' w) @ drop q' w"
-      by (simp add: drop_qp_drop_p[symmetric] append_take_drop_id)
+      using append_take_drop_id drop_qp_drop_p by metis
     (* path_weight A (drop p' w) = path_weight A ?C * path_weight A (drop q' w) *)
     have split_q: "path_weight A (drop p' w) =
         path_weight A ?C * path_weight A (drop q' w)"
     proof -
       have "path_weight A (drop p' w) =
             path_weight A (take (q'-p') (drop p' w) @ drop q' w)"
-        by (simp add: drop_qp_drop_p[symmetric] append_take_drop_id)
+        using append_take_drop_id drop_qp_drop_p by metis
       also have "\<dots> = path_weight A (take (q'-p') (drop p' w) @ [hd (drop q' w)]) *
                        path_weight A (drop q' w)"
         using path_weight_append[OF take_C_ne drop_q_ne] .
@@ -927,7 +953,7 @@ proof -
     have C_in_walks: "?C \<in> walks n (q'-p') v v"
     proof -
       have hlen: "length ?C = Suc (q'-p')"
-        using hpq hp'(1) by simp
+        using hpq hp'(1) hq'(1) by (simp add: min_def)
       have hhd: "hd ?C = v"
         by (simp add: hd_append take_C_ne
                       hd_drop_conv_nth[of p' w, folded hp'(2)] hp'(1))
@@ -986,7 +1012,7 @@ proof -
     show ?thesis using main_le w'_eq by simp
   qed
   have hw'_ne: "?w' \<noteq> []"
-    using hp'(3) by (simp add: hd_append take_eq_Nil)
+    using hp'(1) hp'(3) by (cases w) auto
   have hw'_set: "set ?w' \<subseteq> {..<n}"
   proof -
     have "set ?w' \<subseteq> set w"
@@ -1417,9 +1443,8 @@ text \<open>
   is @{text "\<le> 1"} where @{text "1 = Fin 0"}.
 \<close>
 
-definition no_pos_cycle :: "nat \<Rightarrow> trop_mat \<Rightarrow> bool" where
-  "no_pos_cycle n A \<equiv>
-     \<forall> i < n. \<forall> k. \<forall> w \<in> walks n k i i. path_weight A w \<le> (1 :: tropical)"
+(* `no_pos_cycle` definition moved up to just before `path_weight_cycle_excise`
+   on 2026-04-26 — see the comment there. *)
 
 (* ------------------------------------------------------------------ *)
 subsection \<open>22  Simple Walks\<close>
@@ -1503,38 +1528,105 @@ proof (induction "length w" arbitrary: k i j w rule: less_induct)
        These are equal definitionally ([y]@ys = y#ys); auto bridges. *)
     obtain xs v ys zs where hdecomp: "w = xs @ v # ys @ v # zs"
       using not_distinct_decomp[OF False] by auto
-    (* First occurrence of v (at position length xs) is in butlast w *)
-    have hv1: "v \<in> set (butlast w)"
-    proof -
-      have hpos: "length xs < length (butlast w)"
-        by (simp add: hdecomp)
-      have "butlast w ! length xs = v"
-        by (simp add: hdecomp nth_butlast nth_append)
-      thus ?thesis by (metis hpos nth_mem)
-    qed
-    (* Second occurrence (at position ≥ 1) is in tl w *)
-    have hv2: "v \<in> set (tl w)"
-      using hdecomp by (cases xs) (auto simp: set_append)
-    (* Excise the cycle to get a strictly shorter walk w'' *)
+    (* Position pair derived from hdecomp:
+         p = length xs        — index of first v
+         q = length xs + |ys| + 1 — index of second v
+       The two positions are guaranteed distinct (q - p = |ys| + 1 \<ge> 1).
+       For the strict lemma we also need 0 < p, i.e. xs \<noteq> []; the
+       xs = [] case (first vertex of w is v) is handled inline below. *)
+    let ?p = "length xs"
+    let ?q = "length xs + length ys + 1"
+    have hpq:    "?p < ?q" by simp
+    have hq_lt:  "?q < length w" by (simp add: hdecomp)
+    have hpq_eq: "w ! ?p = w ! ?q"
+      by (simp add: hdecomp nth_append)
     obtain w'' where hge: "path_weight A w \<le> path_weight A w''"
                  and hlen: "length w'' < length w"
                  and hne'': "w'' \<noteq> []"
                  and hhd: "hd w'' = hd w"
                  and hlast: "last w'' = last w"
                  and hset: "set w'' \<subseteq> {..<n}"
-      using path_weight_cycle_excise[OF hv1 hv2 hnpc less.prems] by blast
+    proof (cases "xs = []")
+      case False
+      hence hp_pos: "0 < ?p" by simp
+      from path_weight_cycle_excise[where p = "?p" and q = "?q" and w = w,
+                                    OF hp_pos hpq hq_lt hpq_eq hnpc less.prems]
+      show ?thesis using that by blast
+    next
+      case True
+      (* w = v # ys @ v # zs. Excision witness is drop ?q w = v # zs. *)
+      let ?w' = "drop ?q w"
+      have w'_eq: "?w' = v # zs" using True hdecomp by simp
+      have w'_ne: "?w' \<noteq> []" using w'_eq by simp
+      have w'_hd: "hd ?w' = hd w"
+        using True hdecomp w'_eq by simp
+      have w'_last: "last ?w' = last w"
+        using hq_lt by (simp add: hdecomp)
+      have w'_len: "length ?w' < length w"
+        using hq_lt by simp
+      have w'_set: "set ?w' \<subseteq> {..<n}"
+        by (meson set_drop_subset walk_vertices_bounded[OF less.prems] subset_trans)
+      (* Weight bound: w decomposes as (cycle from 0 to ?q) ++ (drop ?q w).
+         The cycle [v] @ ys @ [v] is a closed walk at v with weight \<le> 1
+         under no_pos_cycle. *)
+      have w'_weight: "path_weight A w \<le> path_weight A ?w'"
+      proof -
+        let ?C = "v # ys @ [v]"
+        have take_q_ne: "take ?q w \<noteq> []" using hq_lt by (cases w) auto
+        have drop_q_ne: "?w' \<noteq> []" using w'_ne .
+        have take_q_eq: "take ?q w = v # ys" using True hdecomp by simp
+        have hd_drop_q: "hd ?w' = v" using w'_eq by simp
+        have decomp_w: "w = take ?q w @ ?w'" by simp
+        have split: "path_weight A w =
+                     path_weight A (take ?q w @ [v]) * path_weight A ?w'"
+          using path_weight_append[OF take_q_ne drop_q_ne] hd_drop_q
+          by simp
+        have take_v_eq: "take ?q w @ [v] = ?C" using take_q_eq by simp
+        have v_lt_n: "v < n"
+          using walk_vertices_bounded[OF less.prems] True hdecomp
+          by (auto simp: subset_eq)
+        have C_in_walks: "?C \<in> walks n (Suc (length ys)) v v"
+        proof -
+          have hlen:  "length ?C = Suc (Suc (length ys))" by simp
+          have hhd:   "hd ?C = v" by simp
+          have hlast: "last ?C = v" by simp
+          have hset:  "set ?C \<subseteq> {..<n}"
+          proof -
+            have "set ?C \<subseteq> set w" using True hdecomp by auto
+            thus ?thesis using walk_vertices_bounded[OF less.prems] by (rule subset_trans)
+          qed
+          show ?thesis unfolding walks_def
+            using hlen hhd hlast hset by simp
+        qed
+        have C_le: "path_weight A ?C \<le> (1 :: tropical)"
+          using hnpc v_lt_n C_in_walks
+          unfolding no_pos_cycle_def by blast
+        have "path_weight A w =
+              path_weight A ?C * path_weight A ?w'"
+          using split take_v_eq by simp
+        also have "\<dots> = path_weight A ?w' * path_weight A ?C"
+          by (simp add: mult.commute)
+        also have "\<dots> \<le> path_weight A ?w' * 1"
+          using trop_mul_le_mul_right[OF C_le] .
+        also have "\<dots> = path_weight A ?w'" by simp
+        finally show ?thesis .
+      qed
+      show ?thesis
+        using that[of ?w'] w'_weight w'_len w'_ne w'_hd w'_last w'_set
+        by blast
+    qed
     (* w'' is a valid walk from i to j *)
     have hw''_in: "w'' \<in> walks n (length w'' - 1) i j"
-      unfolding walks_def
-    proof (intro conjI)
-      show "length w'' = Suc (length w'' - 1)"
+    proof -
+      have h1: "length w'' = Suc (length w'' - 1)"
         using hne'' by (cases w'') simp_all
-      show "hd w'' = i"
+      have h2: "hd w'' = i"
         using hhd walk_hd[OF less.prems] by simp
-      show "last w'' = j"
+      have h3: "last w'' = j"
         using hlast walk_last[OF less.prems] by simp
-      show "set w'' \<subseteq> {..<n}"
+      have h4: "set w'' \<subseteq> {..<n}"
         using hset .
+      show ?thesis unfolding walks_def using h1 h2 h3 h4 by simp
     qed
     (* Apply the induction hypothesis to the shorter walk *)
     obtain w' where hw'_in: "w' \<in> simple_walks n i j"
@@ -1840,45 +1932,29 @@ qed
 (* Min-plus cycle excision: a walk with a repeated vertex can be shortened
    and the shorter walk has \<le> weight (removing a \<ge>1 cycle). *)
 lemma path_weightm_cycle_excise:
-  assumes hv1: "v \<in> set (butlast w)"
-  assumes hv2: "v \<in> set (tl w)"
-  assumes hnnc: "no_neg_cycle n A"
-  assumes hw_in: "w \<in> walks n k i j"
+  assumes hp_pos: "0 < p"
+  assumes hpq:    "p < q"
+  assumes hq_lt:  "q < length w"
+  assumes hpq_eq: "w ! p = w ! q"
+  assumes hnnc:   "no_neg_cycle n A"
+  assumes hw_in:  "w \<in> walks n k i j"
   shows "\<exists> w'. path_weightm A w' \<le> path_weightm A w \<and>
                length w' < length w \<and>
                w' \<noteq> [] \<and>
                hd w' = hd w \<and> last w' = last w \<and>
                set w' \<subseteq> {..<n}"
 proof -
-  (* Find indices p < q with w!p = w!q = v — identical to max-plus *)
-  have hne: "w \<noteq> []" using hv1 by auto
-  from hv1 obtain q where hq_bound: "q < length (butlast w)"
-                     and hq_val:   "(butlast w) ! q = v"
-    by (meson in_set_conv_nth)
-  from hv2 obtain p0 where hp0_bound: "p0 < length (tl w)"
-                      and hp0_val:   "(tl w) ! p0 = v"
-    by (meson in_set_conv_nth)
-  let ?p = "Suc p0"
-  let ?q = "q"
-  have hp_lt:   "?p < length w"  using hp0_bound by simp
-  have hp_val:  "w ! ?p = v"      using hp0_val nth_tl[OF hp0_bound] by simp
-  have hq_lt:   "?q < length w - 1" using hq_bound by simp
-  have hq_val': "w ! ?q = v"      using hq_val nth_butlast[OF hq_bound] by simp
-  obtain p' q' where hp': "p' < length w" "w ! p' = v" "0 < p'"
-                and hq': "q' < length w - 1" "w ! q' = v"
-                and hpq: "p' < q'"
-  proof (cases "?p \<le> ?q")
-    case True
-    thus ?thesis
-      using hp_lt hp_val hq_lt hq_val'
-      by (intro that[of ?p ?q]) auto
-  next
-    case False
-    hence "?q < ?p" by simp
-    thus ?thesis
-      using hp_lt hp_val hq_lt hq_val'
-      by (intro that[of ?q ?p]) auto
-  qed
+  (* CORRECTED 2026-04-26 — see same note at path_weight_cycle_excise.
+     Mirrors the max-plus fix: take an explicit position pair (p, q). *)
+  define v  where v_def:  "v  = w ! p"
+  define p' where p'_def: "p' = (p :: nat)"
+  define q' where q'_def: "q' = (q :: nat)"
+  have hp_lt: "p < length w" using hpq hq_lt by simp
+  have hp': "p' < length w" "w ! p' = v" "0 < p'"
+    using hp_lt v_def hp_pos by (simp_all add: p'_def)
+  have hq': "q' < length w" "w ! q' = v"
+    using hq_lt hpq_eq v_def by (simp_all add: q'_def)
+  have hpq: "p' < q'" using hpq by (simp add: p'_def q'_def)
   let ?w' = "take p' w @ drop q' w"
   have hw'_hd:   "hd ?w' = hd w"
     using hp'(3) by (simp add: hd_append take_eq_Nil)
@@ -1897,12 +1973,12 @@ proof -
     have take_drop_p: "w = take p' w @ drop p' w" by simp
     have drop_p_ne:   "drop p' w \<noteq> []" using hp'(1) by simp
     have take_p_ne:   "take p' w \<noteq> []"
-      using hp'(1) hp'(3) by (simp add: take_eq_Nil)
+      using hp'(1) hp'(3) by (cases w) auto
     have hd_drop_p:   "hd (drop p' w) = v"
       using hp'(1,2) by (simp add: hd_drop_conv_nth)
     have split_p: "path_weightm A w =
         path_weightm A (take p' w @ [v]) * path_weightm A (drop p' w)"
-      using path_weightm_snoc[OF take_p_ne drop_p_ne]
+      using path_weightm_append[OF take_p_ne drop_p_ne]
       by (simp add: hd_drop_p)
     let ?C = "take (q'-p') (drop p' w) @ [v]"
     have take_C_ne:     "take (q'-p') (drop p' w) \<noteq> []"
@@ -1917,10 +1993,10 @@ proof -
     proof -
       have "path_weightm A (drop p' w) =
             path_weightm A (take (q'-p') (drop p' w) @ drop q' w)"
-        by (simp add: drop_qp_drop_p[symmetric] append_take_drop_id)
+        using append_take_drop_id drop_qp_drop_p by metis
       also have "\<dots> = path_weightm A (take (q'-p') (drop p' w) @ [hd (drop q' w)]) *
                        path_weightm A (drop q' w)"
-        using path_weightm_snoc[OF take_C_ne drop_q_ne] .
+        using path_weightm_append[OF take_C_ne drop_q_ne] .
       also have "\<dots> = path_weightm A ?C * path_weightm A (drop q' w)"
         by (simp add: hd_drop_q)
       finally show ?thesis .
@@ -1934,7 +2010,8 @@ proof -
     qed
     have C_in_walks: "?C \<in> walks n (q'-p') v v"
     proof -
-      have hlen:  "length ?C = Suc (q'-p')" using hpq hp'(1) by simp
+      have hlen:  "length ?C = Suc (q'-p')"
+        using hpq hp'(1) hq'(1) by (simp add: min_def)
       have hhd:   "hd ?C = v"
         by (simp add: hd_append take_C_ne
                       hd_drop_conv_nth[of p' w, folded hp'(2)] hp'(1))
@@ -1975,7 +2052,7 @@ proof -
         have "path_weightm A ?w' =
               path_weightm A (take p' w @ [hd (drop q' w)]) *
               path_weightm A (drop q' w)"
-          using path_weightm_snoc[OF take_p_ne drop_q_ne] .
+          using path_weightm_append[OF take_p_ne drop_q_ne] .
         thus ?thesis by (simp add: hd_drop_q)
       qed
       also have "\<dots> \<le> path_weightm A (take p' w @ [v]) *
@@ -2023,29 +2100,87 @@ proof (induction "length w" arbitrary: k i j w rule: less_induct)
     case False
     obtain xs v ys zs where hdecomp: "w = xs @ v # ys @ v # zs"
       using not_distinct_decomp[OF False] by auto
-    have hv1: "v \<in> set (butlast w)"
-    proof -
-      have hpos: "length xs < length (butlast w)" by (simp add: hdecomp)
-      have "butlast w ! length xs = v"
-        by (simp add: hdecomp nth_butlast nth_append)
-      thus ?thesis by (metis hpos nth_mem)
-    qed
-    have hv2: "v \<in> set (tl w)"
-      using hdecomp by (cases xs) (auto simp: set_append)
+    let ?p = "length xs"
+    let ?q = "length xs + length ys + 1"
+    have hpq:    "?p < ?q" by simp
+    have hq_lt:  "?q < length w" by (simp add: hdecomp)
+    have hpq_eq: "w ! ?p = w ! ?q"
+      by (simp add: hdecomp nth_append)
     obtain w'' where hle:   "path_weightm A w'' \<le> path_weightm A w"
                 and hlen:   "length w'' < length w"
                 and hne'':  "w'' \<noteq> []"
                 and hhd:    "hd w'' = hd w"
                 and hlast:  "last w'' = last w"
                 and hset:   "set w'' \<subseteq> {..<n}"
-      using path_weightm_cycle_excise[OF hv1 hv2 hnnc less.prems] by blast
+    proof (cases "xs = []")
+      case False
+      hence hp_pos: "0 < ?p" by simp
+      from path_weightm_cycle_excise[where p = "?p" and q = "?q" and w = w,
+                                     OF hp_pos hpq hq_lt hpq_eq hnnc less.prems]
+      show ?thesis using that by blast
+    next
+      case True
+      (* Min-plus mirror: when xs = [], excision is drop ?q w = v # zs;
+         the cycle [v] @ ys @ [v] has weight \<ge> 1 under no_neg_cycle. *)
+      let ?w' = "drop ?q w"
+      have w'_eq:   "?w' = v # zs" using True hdecomp by simp
+      have w'_ne:   "?w' \<noteq> []"     using w'_eq by simp
+      have w'_hd:   "hd ?w' = hd w" using True hdecomp w'_eq by simp
+      have w'_last: "last ?w' = last w" using hq_lt by (simp add: hdecomp)
+      have w'_len:  "length ?w' < length w" using hq_lt by simp
+      have w'_set:  "set ?w' \<subseteq> {..<n}"
+        by (meson set_drop_subset walk_vertices_bounded[OF less.prems] subset_trans)
+      have w'_weight: "path_weightm A ?w' \<le> path_weightm A w"
+      proof -
+        let ?C = "v # ys @ [v]"
+        have take_q_ne: "take ?q w \<noteq> []"
+          using hq_lt by (cases w) auto
+        have drop_q_ne: "?w' \<noteq> []" using w'_ne .
+        have take_q_eq: "take ?q w = v # ys" using True hdecomp by simp
+        have hd_drop_q: "hd ?w' = v" using w'_eq by simp
+        have split: "path_weightm A w =
+                     path_weightm A (take ?q w @ [v]) * path_weightm A ?w'"
+          using path_weightm_append[OF take_q_ne drop_q_ne] hd_drop_q
+          by simp
+        have take_v_eq: "take ?q w @ [v] = ?C" using take_q_eq by simp
+        have v_lt_n: "v < n"
+          using walk_vertices_bounded[OF less.prems] True hdecomp
+          by (auto simp: subset_eq)
+        have C_in_walks: "?C \<in> walks n (Suc (length ys)) v v"
+        proof -
+          have hlen:  "length ?C = Suc (Suc (length ys))" by simp
+          have hhd:   "hd ?C = v" by simp
+          have hlast: "last ?C = v" by simp
+          have hset:  "set ?C \<subseteq> {..<n}"
+          proof -
+            have "set ?C \<subseteq> set w" using True hdecomp by auto
+            thus ?thesis using walk_vertices_bounded[OF less.prems] by (rule subset_trans)
+          qed
+          show ?thesis unfolding walks_def
+            using hlen hhd hlast hset by simp
+        qed
+        have C_ge: "(1 :: tropical_min) \<le> path_weightm A ?C"
+          using hnnc v_lt_n C_in_walks
+          unfolding no_neg_cycle_def by blast
+        have "path_weightm A ?w' \<le> path_weightm A ?w' * path_weightm A ?C"
+          using tropm_one_le_mul_of_ge_one[OF C_ge] .
+        also have "\<dots> = path_weightm A ?C * path_weightm A ?w'"
+          by (simp add: mult.commute)
+        also have "\<dots> = path_weightm A w"
+          using split take_v_eq by simp
+        finally show ?thesis .
+      qed
+      show ?thesis
+        using that[of ?w'] w'_weight w'_len w'_ne w'_hd w'_last w'_set
+        by blast
+    qed
     have hw''_in: "w'' \<in> walks n (length w'' - 1) i j"
-      unfolding walks_def
-    proof (intro conjI)
-      show "length w'' = Suc (length w'' - 1)" using hne'' by (cases w'') simp_all
-      show "hd w'' = i"  using hhd walk_hd[OF less.prems] by simp
-      show "last w'' = j" using hlast walk_last[OF less.prems] by simp
-      show "set w'' \<subseteq> {..<n}" using hset .
+    proof -
+      have h1: "length w'' = Suc (length w'' - 1)" using hne'' by (cases w'') simp_all
+      have h2: "hd w'' = i"  using hhd walk_hd[OF less.prems] by simp
+      have h3: "last w'' = j" using hlast walk_last[OF less.prems] by simp
+      have h4: "set w'' \<subseteq> {..<n}" using hset .
+      show ?thesis unfolding walks_def using h1 h2 h3 h4 by simp
     qed
     obtain w' where hw'_in: "w' \<in> simple_walksm n i j"
                and hw'_le:  "path_weightm A w' \<le> path_weightm A w''"
