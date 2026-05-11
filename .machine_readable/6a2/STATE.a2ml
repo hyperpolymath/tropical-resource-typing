@@ -110,14 +110,14 @@ theories = [
     note = "Original baseline (not in ROOT — superseded by Tropical_v2)." },
   { name = "Tropical_Ordinal",       loc = 162,  build = "GREEN", proof-failures = 0, doc-failures = 0,
     note = "Rung-1 skeleton: 15 lemmas verified via ECHIDNA harvest." },
-  { name = "Tropical_Kleene",        loc = 610,  build = "GREEN", proof-failures = 4, doc-failures = 7,
-    note = """4 proof sites: 237 (`proof (rule sum_mono)`); 403 (`by blast` on not_distinct_decomp obtain — needs `by force` because [v] vs v#[] desugaring); 474 (trop_mat_id ≤ trop_mat_id + ...); 575 (sum f S ≤ c from finite + bounded). Doc-antiquotation issues at 14, 40, 163, 348, 373, 442, 598 (cosmetic).""" },
-  { name = "Tropical_Determinants",  loc = 338,  build = "GREEN", proof-failures = 7, doc-failures = 0,
-    note = """7 proof sites. The serious ones are 153 + 207 — `Type unification failed: Variable 'a::{one,ord} not of sort zero` and same for `'a::{numeral,ord}`. These suggest a HOL.Permutations / HOL.Bij class-instance regression between Isabelle 2024 and 2025. Other sites (81, 166, 191, 262, 302) likely cascade from those. Site 81 (sum_tropical_min_mem) is independent and a `by auto` substitution issue.""" },
-  { name = "Tropical_Matrices_Full", loc = 2308, build = "GREEN", proof-failures = 4, doc-failures = 2,
-    note = """4 proof sites — confirmed: 838 + 1874 (identical pigeonhole goal `Suc p0 ≤ q ⟹ Suc p0 < q`), 1525 (`OF: multiple unifiers` cycle-excise root), 2044 (walks set membership). 838/1874/2044 collapse onto the 1525 root: strengthen `path_weight_cycle_excise` to take an explicit position pair (p < q, w!p = w!q). Doc-antiquotation at 48 + 1666 (cosmetic).""" },
-  { name = "Tropical_CNO",           loc = 1013, build = "GREEN", proof-failures = 1, doc-failures = 0,
-    note = "Line 655 — `Bad context for command qed`. The committed `proof clarify` form at 619 with manual `fix i k w assume hi and hw` is structurally wrong. Both `proof (intro allI impI allI ballI)` and `proof safe` should work; this session attempted both and neither closed cleanly because the inner `proof - / qed` block adds an extra qed. Need a careful one-pass rewrite that opens exactly one block." },
+  { name = "Tropical_Kleene",        loc = 610,  build = "GREEN", proof-failures = 0, doc-failures = 0,
+    note = """CLOSED 2026-04-26 evening. Historical failures (now fixed): 237 (sum_mono — needed ordered_ab_semigroup_add instance in Tropical_v2); 403 (not_distinct_decomp obtain, [v] vs v#[] desugaring — replaced with cycle_shortcutting wrapper); 474 (trop_mat_id le — trop_add_le_iff needed); 575 (sum f S ≤ c — sum_le_const generalised to 'a ⇒ tropical). Doc-antiquotation at 14/40/163/348/373/442/598 — cosmetic, closed by quote-string fixes.""" },
+  { name = "Tropical_Determinants",  loc = 338,  build = "GREEN", proof-failures = 0, doc-failures = 0,
+    note = """CLOSED 2026-04-26 (1cb03e9 + e0d95e9). Root: Isabelle 2025-1 generalised permutes_in_image binding, leaving `0 :: ??'a` unconstrained. Fix: explicit `permutes_in_image[OF h, of 0/1]` pinning. Cascade-closed 81/153/166/191/207/262/302 (all 7 sites). Fun.swap → Transposition.transpose for 2x2 case (Fun.swap became input-only in 2025-1).""" },
+  { name = "Tropical_Matrices_Full", loc = 2308, build = "GREEN", proof-failures = 0, doc-failures = 0,
+    note = """CLOSED 2026-04-26 (512892d cycle-excise refactor + e0d95e9). Historical root 1525 (OF: multiple unifiers): strengthened path_weight_cycle_excise to explicit position pair. Cascade-closed 838/1874/2044. Doc-antiquotation at 48/1666 closed by quoting fixes.""" },
+  { name = "Tropical_CNO",           loc = 1013, build = "GREEN", proof-failures = 0, doc-failures = 0,
+    note = """CLOSED 2026-04-26 (34ae52e + cab5da8). Real proof gap: trop_mat_star_idem requires no_pos_cycle — now explicit assumption. trop_cno_star → trop_cno_star_conditional. walk_concat_nonempty switched to induction; set(tl) ⊆ set step made explicit. Doc-antiquotation closed by comment rewrite.""" },
   { name = "Tropical_Matrices_Clean", loc = 1124, build = "NOT-BUILT", proof-failures = "?", doc-failures = "?",
     note = "Not in ROOT theories list; older clean cut, kept as reference." },
   { name = "Tropical_Ordinal_Bridge", loc = 38,  build = "NOT-BUILT", proof-failures = "?", doc-failures = "?",
@@ -153,14 +153,11 @@ fixes-attempted-this-session-then-reverted = [
   "Tropical_Determinants 81: tried `show ?thesis unfolding sum_eq by simp`; build_log shows it still fails to refine. Reverted.",
   "Tropical_Kleene 403: tried `by (metis append_Cons append_Nil)`; works in isolation, but Kleene 237/474/575 also fail. Reverted as part of clean baseline rebuild.",
 ]
-fixes-pending = [
-  "Tropical_Determinants × 7 (153/207 type-class regression are root candidates; 81/166/191/262/302 may cascade)",
-  "Tropical_Kleene × 4 (237 sum_mono / 403 obtain / 474 trop_mat_id refl / 575 sum bounded)",
-  "Tropical_Matrices_Full × 4 (838/1874/2044 collapse onto 1525 cycle-excise root)",
-  "Tropical_CNO × 1 (655 proof structure)",
-]
-total-proof-failure-sites = 16
-total-doc-antiquotation-sites = 10
+fixes-pending = []
+# All 16 proof-failure sites and ~10 doc-antiquotation sites closed
+# in the 2026-04-26 evening session (commits 1cb03e9 → cab5da8).
+total-proof-failure-sites = 0
+total-doc-antiquotation-sites = 0
 
 [burrower-handoff]
 # Burrower (proof-burrower private repo) is the eventual driver for these
@@ -172,23 +169,21 @@ first-real-test    = "Tropical_Matrices_Full path_weight_cycle_excise root"
 next-handoff-step  = "Wire EI-1 (project-aware probe) + BI-1 (burrower serve socket); see proof-burrower/docs/ECHIDNA-INTEGRATION.adoc"
 
 [maintenance-status]
-last-run-utc = "2026-04-26T17:00:00Z"
-last-report = "docs/SWARM-SESSION-2026-04-26.adoc (afternoon swarm-dogfood session)"
+last-run-utc = "2026-04-26T18:36:25Z"
+last-report = "docs/SESSION-REPORT-2026-05-11.adoc (2026-05-11 reconciliation session)"
 last-result = """
-RED — inventory has shifted again since the morning. Authoritative
-`isabelle build_log -H Error Tropical_Semirings` (afternoon, 2026-04-26)
-shows the dominant failure pattern is now in Tropical_CNO.thy
-(Failed-to-finish-proof at lines 174, 462, 586, 783; Failed-to-apply
-initial-proof-method at 860) PLUS Outer-lexical errors in
-Tropical_Kleene at line 206 and Tropical_CNO at line 677 that block
-later sites from being checked. K-403 as named in the morning's STATE
-no longer exists at line 403; the file evolved through the morning's
-work. Headline swarm dogfood targeted a tropical-flavoured probe
-(walk_concat_nonempty shape) — see docs/SWARM-SESSION-2026-04-26.adoc.
+GREEN — Tropical_Semirings session builds clean under Isabelle 2025-1
+(strict, without quick_and_dirty). 0 sorry / 0 oops / 0 banned-pattern
+violations. All 16 proof-failure sites and ~10 doc-antiquotation sites
+closed in the 2026-04-26 evening session (commits 1cb03e9 → cab5da8).
+Verified by repo owner at 2026-04-26T18:36:25Z.
+Historical RED snapshot (afternoon 2026-04-26): Tropical_CNO failures
+at lines 174/462/586/783/860 plus Outer-lexical errors in Kleene/CNO —
+see SWARM-SESSION-2026-04-26.adoc.
 """
-last-result-source = "isabelle build_log -H Error Tropical_Semirings (authoritative — reads heap, not stdout)"
-open-warnings = "see SWARM-SESSION-2026-04-26.adoc — doc-antiquotation count needs re-tally with new inventory"
-open-failures = "see SWARM-SESSION-2026-04-26.adoc — counts shifted with the file edits during the morning"
+last-result-source = "isabelle build_log -H Error Tropical_Semirings (authoritative — reads heap, not stdout); verified by repo owner"
+open-warnings = "Tropical_v2 line 561: cosmetic inner-syntax error at `+` in a text/antiquotation block. Affects PDF generation only, not proof checking."
+open-failures = "none"
 methodology-note = """
 TWO discoveries about staleness this session:
 (1) [original] Always use `isabelle build_log -H Error <session>` after
@@ -220,11 +215,64 @@ landed = [
   "Rewrote `hw''_in: w'' ∈ walks ...` proofs to use `unfolding walks_def using ... by simp` pattern rather than `proof (intro conjI)` (the latter doesn't apply because walks_def yields a Collect set).",
   "Various blast-loop fixes: `set_drop_subset walk_vertices_bounded ... by blast` → `by (meson ... subset_trans)`; `take_p_ne` proofs now `(cases w) auto` to chain `0 < p → length w > 0 → w ≠ []`.",
 ]
-remaining-after-cycle-excise = [
-  "Matrices 958, 1634, 2016, 2187 — surface-tactical issues exposed by the refactor (arith with min, walks set membership, IH application). Each is a small targeted fix but ~5 sub-failures deep — the pattern of churn this session showed each fix exposes the next.",
-  "Det 7 + Kleene 4 + CNO 1 unchanged — these are independent of cycle-excise and need separate work (see issues block).",
+remaining-after-cycle-excise = []
+# All formerly-remaining sites closed 2026-04-26 evening (commits 1cb03e9–cab5da8):
+# Matrices IH/arith/min sites → e0d95e9 (IH call shape, order_trans);
+# Det type-class root → 1cb03e9; Kleene sum_mono/obtain/le/sum → e0d95e9 + cab5da8;
+# CNO 655 proof structure → e0d95e9 + 34ae52e + cab5da8.
+recommendation = "Session complete. Route future Isabelle drift through Echidna + Proof Burrower so the swarm gets friction data."
+
+[session-2026-05-11]
+date = "2026-05-11"
+agent = "Claude claude-sonnet-4-6 via claude-code"
+isabelle-available = false  # Not installed in this environment
+mode = "investigation-only"
+summary = """
+Session brief said 'latest commit on main: 512892d, 16 failures open'.
+Actual repo state on arrival: HEAD = cab5da8 (2026-04-26 18:38 UTC),
+which committed all 16 proof fixes + ~10 doc-antiquotation fixes in one
+pass, claiming GREEN under Isabelle 2025-1 (verified by repo owner).
+
+Commit chain from 512892d to cab5da8 (same day):
+  1cb03e9  Det type-class root (permutes_in_image OF pinning; 16→5)
+  e0d95e9  Cascade closures: Kleene sum_mono/obtain/le/sum, Matrices IH
+           shape, ordered_ab_semigroup_add instance, Transposition.transpose
+  d00d139  CNO drift + sum_le_const + trop_mat_pow_n_le_star hoisting
+  34ae52e  CNO: triangle NegInf cases, conditional CNO close, ge_id 1=Fin0
+  31ef97b  Docs + STATE partial update
+  8817afe  Chore: Chapel 2.8.0 record
+  cab5da8  Final GREEN: CNO walk_concat.induct, set(tl) ⊆ set, trop_mat_star_idem
+           conditionalised on no_pos_cycle, trop_cno_star_conditional, doc fixes
+
+Independent verification performed:
+  - Confirmed 0 sorry/oops/believe_me in all .thy proof bodies.
+  - Reviewed patches for each commit; fixes are structurally sound.
+  - STATE.a2ml had contradictory stale data (this session fixed it):
+      * theories block showed build=GREEN but proof-failures>0
+      * maintenance-status still said RED from afternoon intermediate state
+      * work-in-progress fixes-pending still listed all 16 failures
+      * cycle-excise remaining still listed all failures
+
+Cannot independently run `isabelle build_log -H Error Tropical_Semirings`
+(Isabelle 2025-1 not installed). GREEN claim is from repo owner's build.
+
+Architectural note: trop_mat_star_idem + trop_cno_star now require
+no_pos_cycle. This is a real proof gap that was surfaced: the unconditional
+form is not provable without the assumption. Future work (Burrower candidate):
+unconditional form via separate positive-cycle bounding argument.
+
+Next recommended action: route future Isabelle drift through Echidna +
+Proof Burrower (proof-burrower private repo) to capture swarm friction data.
+"""
+work-done = [
+  "Reconciled STATE.a2ml: fixed [theories] proof-failures to 0, updated [maintenance-status] to GREEN, cleared [work-in-progress] fixes-pending, updated [cycle-excise-refactor-2026-04-26] remaining list.",
+  "Wrote docs/SESSION-REPORT-2026-05-11.adoc.",
 ]
-recommendation = "Hand cycle-excise tail to next session with fresh context. The remaining Matrices sites are mechanical but tedious; the Determinants + Kleene roots (type-class + sum_mono) are independent investigations."
+work-not-done = [
+  "Could not run isabelle build (not installed).",
+  "Could not verify build independently — trusting repo owner's claim.",
+  "Proof Burrower not accessible (private repo, no network access confirmed).",
+]
 
 [ecosystem]
 part-of = ["nextgen-languages", "type-theory research"]

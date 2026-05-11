@@ -1,0 +1,179 @@
+// SPDX-License-Identifier: PMPL-1.0-or-later
+= Tropical_Semirings — Session Report 2026-05-11
+Claude claude-sonnet-4-6 (Claude Code)
+v1.0, 2026-05-11
+:toc:
+:toc-placement: preamble
+
+[abstract]
+Reconciliation session on 2026-05-11, picking up where the 2026-04-26
+swarm dogfood iteration left off. Session brief described 16 open proof
+failures starting from commit `512892d`. **Finding: all 16 failures were
+already closed by the repo owner and Claude Opus 4.7 in the same-day
+evening session** (commits `1cb03e9`–`cab5da8`, 2026-04-26 ~14:43–18:38
+UTC+1). This session's work was reconciliation of a stale `STATE.a2ml`
+and documentation of the fix history.
+
+== Environment
+
+* Platform: Linux, Claude Code CLI (claude-sonnet-4-6)
+* Isabelle 2025-1: **NOT installed** — investigation-only mode throughout.
+* Authoritative build check (`isabelle build_log -H Error Tropical_Semirings`)
+  could not be performed independently. GREEN claim is from repo owner's
+  verified build at `2026-04-26T18:36:25Z`.
+
+== What I found on arrival
+
+The session brief said:
+
+> Latest commit on main: `512892d` (cycle-excise root closed) —
+> 16 proof failures open across 4 theories.
+
+The actual `git log` showed **7 additional commits** on main since `512892d`:
+
+[cols="1,4", options="header"]
+|===
+| Commit | Summary
+| `1cb03e9` | fix(Tropical_Determinants): close type-class regression at 153/207
+| `e0d95e9` | fix(Tropical_Semirings): close Det/Kleene/Matrices/CNO regressions, add ordered_ab_semigroup_add
+| `d00d139` | fix(Tropical_Semirings): close most CNO drift, hoist sum_le_const + trop_mat_pow_n_le_star
+| `34ae52e` | fix(Tropical_CNO): close 4 more sites — triangle NegInf cases, CNO close conditional, ge_id 1=Fin0
+| `31ef97b` | docs(swarm): SWARM-SESSION 2026-04-26 + 6a2 sextet + STATE partial update
+| `8817afe` | chore(6a2): record Chapel 2.8.0 active post-reboot
+| `cab5da8` | fix(Tropical_Semirings): close all 16 sites + ~10 doc drifts — session GREEN
+|===
+
+== What the fixes actually did
+
+=== Priority 1 — Determinants type-class regression (D-153/207)
+
+**Root cause confirmed** (commit `1cb03e9`): Isabelle 2025-1 generalised the
+term-binding context in `permutes_in_image`, leaving `0 :: ??'a` unconstrained
+when the goal was discharged by `metis`. This produced `'a::{one,ord} not of
+sort zero` at lines 153 and 207.
+
+**Fix**: replaced `by (metis h permutes_in_image lessThan_iff zero_less_one)`
+with `using permutes_in_image[OF h, of 0] by simp` — the `OF h` instantiation
+pins `π :: nat → nat` via the local hypothesis, eliminating the ambiguity.
+
+This single fix cascade-closed all 7 Determinants sites (81, 153, 166, 191,
+207, 262, 302). Reported 16 → 5 sites.
+
+Additional Determinants change in `e0d95e9`: `Fun.swap` became an input-only
+abbreviation in Isabelle 2025-1; the 2×2 permutation proof was rewritten using
+`Transposition.transpose` + `permutes_doubleton_iff`.
+
+=== Priority 1 — Kleene sum_mono (K-237)
+
+**Root cause** (`e0d95e9`): `proof (rule sum_mono)` requires the result type to
+be in `ordered_comm_monoid_add`. `tropical` and `tropical_min` did not have an
+`ordered_ab_semigroup_add` instance, which Isabelle 2025-1 needs to derive
+`ordered_comm_monoid_add`.
+
+**Fix**: added `instance tropical :: ordered_ab_semigroup_add` and
+`instance tropical_min :: ordered_ab_semigroup_add` to `Tropical_v2.thy`.
+The `a ≤ b ⟹ c + a ≤ c + b` proof goes via `+ = max` (respectively `min`).
+
+=== Priority 1 — Kleene K-403/474/575
+
+* **K-403** (`obtain ... by blast`): `not_distinct_decomp` was replaced entirely
+  by a `cycle_shortcutting` wrapper call, bypassing the `[v] vs v#[]` desugaring
+  issue.
+* **K-474** (`trop_mat_id ≤ trop_mat_id + ...`): rewrote via `trop_add_le_iff`
+  (`le_add_same_cancel1/2` are conditional on `0 ≤ b` which `simp` doesn't
+  auto-derive on `tropical`).
+* **K-575** (`sum f S ≤ c` from finite + bounded): `sum_le_const` was
+  generalised from `nat ⇒ tropical` to `'a ⇒ tropical` (commit `cab5da8`),
+  enabling application at the `nat list set`-indexed walks sum.
+
+=== Priority 2 — Matrices_Full tail (formerly 958/1634/2016/2187)
+
+These sites (IH call shape, arithmetic with `min`, walks set membership) were
+closed in `e0d95e9`:
+
+* IH calls switched from `less.prems[OF ...]` to `less.hyps[OF ...]`.
+* `le_trans` → `order_trans` on the final shortcutting step.
+* `hw'_ne` uses `(cases w) auto` pattern.
+* `hd_drop_conv_nth` proofs use explicit `hp'(1,2) + take_C_ne`.
+
+=== Priority 3 — CNO C-655
+
+**Real proof gap surfaced**: `trop_mat_star_idem` cannot be proved
+unconditionally — its `(≤)` direction needs `path_weight_star_le`, which
+requires `no_pos_cycle`. The fix (`34ae52e` + `cab5da8`):
+
+* `trop_mat_star_idem` now has an explicit `hnpc: no_pos_cycle n A` assumption.
+* `trop_cno_star` renamed to `trop_cno_star_conditional` (requires
+  `∀A. no_pos_cycle n A`).
+* The `(≥)` direction case-splits on `n = 1` vs `1 < n`, using
+  `trop_mat_star_ge_mat` in the `n > 1` branch.
+
+The `Bad context for command qed` at line 655 resolved as a cascade from
+`le_trans → order_trans` correction in `e0d95e9`.
+
+=== Doc-antiquotation fixes
+
+~10 cosmetic sites closed in `cab5da8`:
+
+* `@{text A*}` / `@{text n-1}` → `@{text "A*"}` / `@{text "n-1"}` (bare
+  term/formula in antiquotation must be quoted).
+* Missing closing quotes in Kleene 205/206 restored.
+* `\le` → `\<le>` inside Kleene string.
+* C-style `(* (A*)* *)` comments rewritten as `\<comment> \<open>...\<close>`
+  because Isabelle's nested-comment parser closes on `*)` even inside `(A*)`.
+
+== STATE.a2ml reconciliation (this session)
+
+`STATE.a2ml` was partially updated by `cab5da8` (the `[isabelle-build]`
+section was set to GREEN) but four sections were left stale:
+
+[cols="2,1,2", options="header"]
+|===
+| Section | Old state | Fixed to
+| `[theories]` proof-failures | 4/7/1/4 (historical) | 0 for all theories
+| `[work-in-progress] fixes-pending` | 16 items listed | empty list
+| `[maintenance-status] last-result` | RED (afternoon state) | GREEN (evening build)
+| `[cycle-excise-refactor] remaining` | 6 items | empty, with provenance note
+|===
+
+Also added `[session-2026-05-11]` block recording this session's findings.
+
+== What worked, what didn't, what's still open
+
+=== What worked (in the April 26 evening session, now reconciled here)
+
+All 16 proof failures and ~10 doc-antiquotation issues are closed. The build
+verifies clean under Isabelle 2025-1 (repo owner's build at 18:36 UTC+1).
+
+=== What didn't / couldn't be done (this session, 2026-05-11)
+
+* Independent `isabelle build_log -H Error` verification impossible (Isabelle
+  not installed). The GREEN claim is accepted on the basis of (a) no sorry/oops
+  in proof bodies, (b) structurally sound patches reviewed, (c) repo owner
+  co-authorship with direct build access.
+* Proof Burrower (`proof-burrower` private repo) not reachable for network
+  access confirmation. Left as a future integration note.
+
+=== Still open (architectural, not proof failures)
+
+. **`trop_mat_star_idem` / `trop_cno_star` are now conditional on
+  `no_pos_cycle`**. This is a real mathematical restriction, not a tactics
+  limitation. An unconditional form requires separately bounding the
+  positive-cycle case (both sides reach `PosInf`). Candidate Proof Burrower
+  task: Algebraist agent, goal `(A*)* i j = A* i j` without the `no_pos_cycle`
+  precondition.
+. **`Tropical_v2` line 561** cosmetic inner-syntax error (`+` in text block)
+  blocks PDF generation but not proof checking. Defer.
+. **C-style `(*...(X*)...*)` comment pattern** may recur in other files;
+  a grep sweep for `(\* .*[A-Z]\*[)] .* \*)` would catch remaining instances.
+
+== Recommendation for next session
+
+The proof backlog is cleared. Next work should be routed through
+Echidna + Proof Burrower to capture swarm friction data (the original
+motivation for using this repo as a dogfood target). Specific candidates:
+
+. **Unconditional `trop_mat_star_idem`** — Algebraist agent task.
+. **Rung-1 → Rung-2 ordinal lift** — `Tropical_Ordinal` + `Tropical_Ordinal_Bridge`.
+. **AFP submission prep** — tidy doc-antiquotation, add session document,
+  verify against latest AFP template.
