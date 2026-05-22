@@ -1,4 +1,4 @@
-(* SPDX-License-Identifier: PMPL-1.0-or-later *)
+(* SPDX-License-Identifier: MPL-2.0 *)
 theory Tropical_Determinants
   imports Tropical_Matrices_Full "HOL-Combinatorics.Permutations"
 begin

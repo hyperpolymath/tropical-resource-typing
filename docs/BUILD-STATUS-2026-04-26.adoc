@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: PMPL-1.0-or-later
+// SPDX-License-Identifier: MPL-2.0
 = Tropical_Semirings — Build Status 2026-04-26 (v2 corrected)
 Jonathan D.A. Jewell (hyperpolymath)
 v2.0, 2026-04-26

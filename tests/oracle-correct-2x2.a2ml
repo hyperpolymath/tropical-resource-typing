@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: PMPL-1.0-or-later
+# SPDX-License-Identifier: MPL-2.0
 # Smoke fixture: tropical (min-plus) determinant of [[1,2],[3,4]].
 #
 # By definition: det_min = min(1+4, 2+3) = min(5, 5) = 5.

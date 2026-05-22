@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: PMPL-1.0-or-later
+# SPDX-License-Identifier: MPL-2.0
 # Adversarial fuzz fixture (safe-learning c). The fuzz block tells the
 # oracle to generate `trials` random 3×3 matrices in the value range
 # and check that det_min equals the independently-derived permutation
