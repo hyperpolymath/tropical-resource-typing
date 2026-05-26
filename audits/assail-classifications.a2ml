@@ -1,0 +1,47 @@
+;; SPDX-License-Identifier: MPL-2.0
+;; Copyright (c) 2026 Jonathan D.A. Jewell (hyperpolymath) <j.d.a.jewell@open.ac.uk>
+;;
+;; Assail Classifications — tropical-resource-typing
+;; See panic-attack/.claude/CLAUDE.md § "User-Classification Registry".
+
+(assail-classifications
+  (metadata
+    (version "1.0.0")
+    (project "tropical-resource-typing")
+    (last-updated "2026-05-26")
+    (entries 4)
+    (status "active"))
+
+  ;; ─── PA021 ProofDrift false positives ───────────────────────────────────
+  ;; All 4 findings are panic-attack PA021 detector matching the keywords
+  ;; "sorry" / "oops" inside Isabelle \<open>...\<close> or @{text ...} comment
+  ;; antiquotations. No actual unfinished proofs exist in any of these files.
+  ;; See: hyperpolymath/panic-attack#43 (detector bug report).
+
+  (classification
+    (file "Tropical_Kleene.thy")
+    (category "ProofDrift")
+    (classification "detector-false-positive-comment-text")
+    (audit "audits/audit-pa021-comment-text-fp-2026-05-26.md §1")
+    (rationale "PA021 matched line 663 header text 'All proofs are complete — zero @{text sorry}'; no real sorry in file."))
+
+  (classification
+    (file "Tropical_Ordinal.thy")
+    (category "ProofDrift")
+    (classification "detector-false-positive-comment-text")
+    (audit "audits/audit-pa021-comment-text-fp-2026-05-26.md §2")
+    (rationale "PA021 matched line 15 header text mentioning \\<open>oops\\</open>; no real oops/sorry in file."))
+
+  (classification
+    (file "Tropical_Matrices_Clean.thy")
+    (category "ProofDrift")
+    (classification "detector-false-positive-comment-text")
+    (audit "audits/audit-pa021-comment-text-fp-2026-05-26.md §1")
+    (rationale "PA021 matched line 24 header text 'All proofs are complete — zero @{text sorry}'; no real sorry in file."))
+
+  (classification
+    (file "Tropical_CNO.thy")
+    (category "ProofDrift")
+    (classification "detector-false-positive-comment-text")
+    (audit "audits/audit-pa021-comment-text-fp-2026-05-26.md §3")
+    (rationale "PA021 matched line 29 header text 'All sorry placeholders have been closed'; no real sorry in file.")))
