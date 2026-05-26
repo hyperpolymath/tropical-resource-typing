@@ -1,5 +1,89 @@
 = tropical-resource-typing
 :toc: preamble
 :icons: font
+:revdate: 2026-05-26
+// SPDX-License-Identifier: MPL-2.0
 
+A short technical note introducing a **max-plus (tropical) algebraic
+approach to resource-aware type systems**, with applications to
+worst-case cost analysis and protocol typing.
 
+== The idea in one paragraph
+
+Conventional resource-aware type systems track resources additively
+(e.g. linear logic's `!A ⊗ B`). The *tropical / max-plus* semiring
+replaces sum/max — so type-system operations naturally compose to the
+**worst-case bound** rather than a probabilistic / average-case figure.
+This makes the resulting analysis directly applicable to:
+
+* Latency budgets in distributed protocols.
+* Worst-case stack/heap usage in resource-constrained embedded code.
+* Provable upper bounds on adversarial protocol round-counts.
+
+== What's in here
+
+`document/`::
+The note itself (AsciiDoc source). The publishable artefact.
+
+`impl/`::
+A reference implementation — a small worked checker exercising the
+type-system rules from the note.
+
+`docs/`::
+Supplementary material — proofs, derivations, related-work survey.
+
+`audits/`::
+Audit logs from the estate-wide review processes (Hypatia neurosymbolic
+scan, governance-reusable checks, etc.).
+
+`metadata/`::
+Machine-readable metadata (citations, related-work links, dependency
+declarations).
+
+== Quickstart (reading)
+
+[source,bash]
+----
+git clone git@github.com:hyperpolymath/tropical-resource-typing.git
+cd tropical-resource-typing/document/
+
+# Render to HTML (asciidoctor required):
+asciidoctor -o /tmp/note.html main.adoc
+----
+
+== Quickstart (running the reference impl)
+
+[source,bash]
+----
+cd impl/
+just build
+just test
+----
+
+== Status
+
+* **Licence**: MPL-2.0. (Migrated from PMPL-1.0-or-later 2026-05-26 per
+  the estate licence-debt audit, hyperpolymath/standards#196.)
+* **Maturity**: research note. The implementation is intentionally
+  small — a "shows the rules" reference, not a production checker.
+* **Audit findings**: see `docs/tech-debt-2026-05-26.md` if present
+  (added by the 2026-05-26 estate tech-debt scan).
+
+== Reading order
+
+. Start with `document/` for the conceptual content.
+. Cross-reference `impl/` to see the rules in code.
+. Consult `audits/` if you want to see the estate-wide checks that
+  have run against this repo.
+
+== Contributing
+
+See link:CONTRIBUTING.md[CONTRIBUTING.md]. GPG-signed commits required.
+Feedback on the note's framing or proofs is especially welcome — open
+an Issue rather than a PR for substantive disagreements.
+
+== Companion repositories
+
+* link:https://github.com/hyperpolymath/standards[`hyperpolymath/standards`] — canonical estate standards.
+* link:https://github.com/hyperpolymath/echo-types[`hyperpolymath/echo-types`] — sibling formal-foundations work in Agda.
+* link:https://github.com/hyperpolymath/typed-wasm[`hyperpolymath/typed-wasm`] — the typed-wasm target where the resource-typing rules from this note may eventually be deployed in practice.
