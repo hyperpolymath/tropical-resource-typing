@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: MPL-2.0
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 = Tropical Resource Typing For Protocols — Show Me The Receipts
+image:https://img.shields.io/badge/License-MPL_2.0-blue.svg[License: MPL-2.0,link="https://opensource.org/licenses/MPL-2.0"]
+
 :toc:
 :icons: font
 
@@ -107,3 +110,10 @@ mechanisation exist yet.
 | `.machine_readable/` | A2ML metadata files (state, ecosystem)
 | `LICENSE` | MPL-2.0 license text
 |===
+
+
+== License
+
+This project is licensed under the Mozilla Public License, v. 2.0. See the `LICENSE` file for details.
+
+SPDX-License-Identifier: MPL-2.0

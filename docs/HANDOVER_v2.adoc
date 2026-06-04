@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MPL-2.0
+// Copyright (c) Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 = Tropical Semiring Formalisation: Master Handover
 Jonathan D.A. Jewell (hyperpolymath)
 v2.0, 2026-04-11 (errata 2026-04-26)
