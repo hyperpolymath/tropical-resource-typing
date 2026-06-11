@@ -4,8 +4,8 @@
 # ECOSYSTEM.a2ml — tropical-resource-typing ecosystem position
 
 [metadata]
-version = "0.2.1"
-last-updated = "2026-04-26"
+version = "0.2.2"
+last-updated = "2026-06-11"
 
 [project]
 name = "tropical-resource-typing"
@@ -45,10 +45,14 @@ isabelle = [
   { file = "Tropical_CNO.thy", description = "CNO (Construction from Neutral Objects) tropical connection" },
 ]
 lean4 = [
-  { file = "TropicalSessionTypes.lean", description = "Speculative tropical session types; soundness + QTT refinement" },
+  { file = "TropicalSessionTypes.lean", description = "Max-plus semiring (⊕=max,⊗=+); speculative session types; soundness + QTT refinement. Lean 4.13.0, Init only." },
+  { file = "TropicalAdapterPath.lean", description = "Min-max/bottleneck semiring (⊕=min,⊗=max); adapter-path optimisation; hub_ceiling no-go; the De Morgan duality bridge to the max-plus twin. Source: protocol-squisher frozen provenance." },
+  { file = "lakefile.lean", description = "Lake package; lean_lib over both roots. `lake build` is green." },
+  { file = "lean-toolchain", description = "Pins leanprover/lean4:v4.13.0 (no Mathlib)." },
 ]
 docs = [
-  { file = "docs/FORMAL-PROOFS.adoc", description = "Formal proofs documentation" },
+  { file = "docs/LEAN-FORMALIZATION.adoc", description = "AUTHORITATIVE Lean reference: both twins, duality, build/verify recipe, theorem index, axiom audit (propext/Quot.sound only), provenance." },
+  { file = "docs/FORMAL-PROOFS.adoc", description = "Formal proofs documentation (NOTE: Lean code listings predate v6.0 — see LEAN-FORMALIZATION.adoc)." },
   { file = "docs/HANDOVER.adoc", description = "Handover guide for continuing the research" },
 ]
 pdf = [

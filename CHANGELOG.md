@@ -1,6 +1,6 @@
 <!--
 SPDX-License-Identifier: MPL-2.0
-SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath)
+SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk> (hyperpolymath)
 -->
 
 # Changelog
@@ -20,6 +20,10 @@ this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(lean4): migrate the min-max transport semiring (TropicalAdapterPath) in beside the max-plus twin; pin Lean 4.13.0 via lean-toolchain; add lakefile + lake-manifest; `lake build` green
+- feat(lean4): prove the De Morgan duality bridge — dualGrade_invol, dual_tcAdd_is_max (dual of min = max), dual_tcMul_is_min (dual of max = min)
+- docs(lean4): add docs/LEAN-FORMALIZATION.adoc (authoritative Lean reference: build/verify recipe, theorem index, axiom audit, provenance) + README section
+- ci(lean4): add lean.yml — lake build + axiom audit (propext/Quot.sound only, no sorry) on push/PR
 - feat(isabelle): close all sorries in Tropical_Kleene and Tropical_Matrices_Clean
 - feat(isabelle): close all sorries in Tropical_CNO.thy
 - feat(determinants): add Tropical_Determinants.thy — optimal assignment theorem
@@ -33,6 +37,8 @@ this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(lean4): repair TropicalSessionTypes + TropicalAdapterPath to compile clean under core Lean 4.13.0 — import ordering, Mathlib-only `push_neg`→core tactics, `AdapterPath` def→abbrev, local `One` shim (4.13.0 core lacks One), `pathCost_append`/`pathCost_le_sequential` reproved; the inherited "Verified" headers were never true
+- fix(lean4): replace the FALSE `dual_tcMul_bounded` (`dual(max m n)=dual m+dual n−maxGrade`, wrong at m=1,n=2) with the correct De Morgan dual `dual_tcMul_is_min`
 - fix(ci): sync hypatia-scan.yml to canonical (413: env.HOME+Phase-2+SARIF) (#1)
 - fix(Tropical_Semirings): close all 16 sites + ~10 doc drifts — session GREEN under Isabelle 2025-1
 - fix(Tropical_CNO): close 4 more sites — triangle NegInf cases, CNO close conditional, ge_id 1=Fin0
@@ -44,6 +50,7 @@ this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Documentation
 
+- docs(lean4): note that docs/FORMAL-PROOFS.adoc's code listings predate the v6.0 source (illustrative API); point to LEAN-FORMALIZATION.adoc as authoritative
 - docs(swarm): SWARM-SESSION 2026-04-26 + 6a2 sextet completion + STATE update
 - docs(afp): update HANDOVER_v2 — all sorries closed, AFP submission ready
 - docs: add arXiv paper outline for Rigorous Tropical Session Types
