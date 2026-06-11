@@ -1,0 +1,19 @@
+# Lean / Lake build artefacts
+/.lake/
+/build/
+/lake-packages/
+*.olean
+*.ilean
+*.trace
+
+# Julia
+/Manifest-generated.toml
+
+# Isabelle
+*.thy~
+/output/
+/heaps/
+
+# Editor / OS
+*.swp
+.DS_Store
