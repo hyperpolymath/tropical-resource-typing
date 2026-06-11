@@ -1,10 +1,12 @@
 -- SPDX-License-Identifier: MPL-2.0
+import Init
+
 /-!
   # Tropical Session Types — v6.0
 
   Author: Jonathan D.A. Jewell (hyperpolymath)
   Date:   2026-04-11
-  Verified: Lean 4.29.0, `import Init` (no Mathlib dependency)
+  Verified: Lean 4.13.0 (pinned via `lean-toolchain`), `import Init` (no Mathlib dependency)
 
   ## The unsolved problem
 
@@ -71,8 +73,6 @@
   - `spec_par s1 s2` ↔ `trop_mat_add`: parallel sessions are matrix
     addition; a machine-checked type checker backed by `floyd_warshall`.
 -/
-
-import Init
 
 namespace Hyperpolymath.Tropical
 
@@ -155,11 +155,11 @@ theorem mul_bot (a : Tropical) : tMul a .bot = .bot := by
 
 private theorem nat_mul_add_max_left (k m n : Nat) :
     k + Nat.max m n = Nat.max (k + m) (k + n) := by
-  simp [Nat.max_def]; omega
+  simp only [Nat.max_def]; split <;> split <;> omega
 
 private theorem nat_mul_add_max_right (k m n : Nat) :
     Nat.max m n + k = Nat.max (m + k) (n + k) := by
-  simp [Nat.max_def]; omega
+  simp only [Nat.max_def]; split <;> split <;> omega
 
 -- ---- Distributivity ---------------------------------------------------------
 
@@ -178,6 +178,15 @@ theorem right_distrib_trop (a b c : Tropical) :
 -- ============================================================================
 -- 4. CommSemiring Typeclass (local definition, Mathlib-compatible interface)
 -- ============================================================================
+
+/-- Lean 4.13.0 core provides `Zero` but not `One` (the latter landed in a
+    later toolchain).  We supply a minimal local `One` plus its `OfNat` bridge
+    so the Mathlib-compatible interface and `1` notation work under the pinned
+    toolchain without any Mathlib dependency. -/
+class One (α : Type) where
+  one : α
+
+instance [One α] : OfNat α (nat_lit 1) := ⟨One.one⟩
 
 /-- A commutative semiring.
     Defined locally (no Mathlib dependency) with a Mathlib-compatible interface.
@@ -229,8 +238,8 @@ instance : CommSemiring Tropical where
 
 example : (0 : Tropical) = .bot            := rfl
 example : (1 : Tropical) = .val 0          := rfl
-example : (.val 2 + .val 5 : Tropical) = .val 5 := by simp [HAdd.hAdd, Add.add, tAdd]
-example : (.val 2 * .val 5 : Tropical) = .val 7 := by simp [HMul.hMul, Mul.mul, tMul]
+example : (.val 2 + .val 5 : Tropical) = .val 5 := by decide
+example : (.val 2 * .val 5 : Tropical) = .val 7 := by decide
 
 -- ============================================================================
 -- 6. Session Types
@@ -328,7 +337,7 @@ theorem tropical_grade_le_sequentialTotal (s : Session) :
   | send s ih             => simp [Span, sequentialTotal]; omega
   | recv s ih             => simp [Span, sequentialTotal]; exact ih
   | spec_par s1 s2 ih1 ih2 =>
-      simp [Span, sequentialTotal]
-      omega
+      simp only [Span, sequentialTotal, Nat.max_def]
+      split <;> omega
 
 end Hyperpolymath.Tropical
