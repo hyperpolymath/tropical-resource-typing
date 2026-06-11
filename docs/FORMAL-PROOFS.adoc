@@ -5,6 +5,18 @@ Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 :toc:
 :icons: font
 
+[IMPORTANT]
+====
+*Lean API drift 2026-06-11.* The Lean code listings below
+(`tropicalGrade`, `EvaluatesTo`, `spec_branch`, `linearBilling`,
+`TropicalBudget`) are *illustrative* and predate the v6.0 source. They do
+**not** match the file on disk, whose live, compiling definitions are `grade`,
+`Span`, `spec_par`, `sequentialTotal`, and the `Tropical` carrier. For the
+authoritative Lean reference — both twins, the duality, the build/verify recipe,
+the theorem index and the axiom audit — see
+link:LEAN-FORMALIZATION.adoc[`docs/LEAN-FORMALIZATION.adoc`].
+====
+
 [NOTE]
 ====
 *Errata 2026-04-26 (revised).* This document and `HANDOVER_v2.adoc`

@@ -3,6 +3,7 @@
 :icons: font
 :revdate: 2026-05-26
 // SPDX-License-Identifier: MPL-2.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 
 A short technical note introducing a **max-plus (tropical) algebraic
 approach to resource-aware type systems**, with applications to
@@ -68,6 +69,36 @@ just test
   small — a "shows the rules" reference, not a production checker.
 * **Audit findings**: see `docs/tech-debt-2026-05-26.md` if present
   (added by the 2026-05-26 estate tech-debt scan).
+
+== Lean 4 formalization
+
+Two dependency-free Lean 4 proofs sit at the repository root — the
+*order-reversing twins* of one tropical duality, built together by Lake and
+pinned to **Lean 4.13.0** (`lean-toolchain`, `import Init` only, no Mathlib):
+
+`TropicalSessionTypes.lean`::
+The **max-plus** semiring (⊕ = max, ⊗ = +) grading speculative session types:
+`soundness` (static grade = dynamic wall-clock cost) and
+`tropical_grade_le_sequentialTotal` (the QTT refinement, `max ≤ sum`).
+
+`TropicalAdapterPath.lean`::
+The **min-max** / bottleneck semiring (⊕ = min, ⊗ = max) grading adapter paths.
+Home of `hub_ceiling`, the no-go corollary that closes Protocol Squisher's
+universal-interoperability claim. (Source: the frozen provenance archive in
+`protocol-squisher`, left unchanged there.)
+
+The two are connected by the order-reversing involution `g ↦ maxGrade − g`,
+proved here as a lattice *anti-isomorphism* (De Morgan: it exchanges min and
+max), not a semiring homomorphism.
+
+[source,bash]
+----
+lake build          # green; no network deps
+----
+
+`lake build` is green and every headline theorem depends only on `propext`
+(+ `Quot.sound`) — no `sorry`, no `Classical.choice`. Full detail, build/verify
+recipe, theorem index and provenance: link:docs/LEAN-FORMALIZATION.adoc[`docs/LEAN-FORMALIZATION.adoc`].
 
 == Reading order
 

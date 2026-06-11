@@ -1,0 +1,190 @@
+// SPDX-License-Identifier: MPL-2.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell (hyperpolymath)
+= Lean 4 Formalisation: the Tropical Duality (min-max ⇄ max-plus)
+Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+2026-06-11
+:toc:
+:toc-placement: preamble
+:icons: font
+:sectnums:
+
+This is the authoritative reference for the Lean 4 development that lives at the
+repository root: two *order-reversing twins* and the duality connecting them,
+plus how to build and independently re-verify them.
+
+[NOTE]
+====
+The older `docs/FORMAL-PROOFS.adoc` predates the v6.0 source: its Lean code
+listings (`tropicalGrade`, `EvaluatesTo`, `spec_branch`, `linearBilling`) show
+an earlier, *illustrative* API that does not match the file on disk. The live,
+compiling definitions are the ones described **here**.
+====
+
+== TL;DR
+
+* Two files, one Lake library, pinned to **Lean 4.13.0** (`lean-toolchain`),
+  **no Mathlib** (`import Init` only).
+* `TropicalSessionTypes.lean` — the **max-plus** semiring (⊕ = max, ⊗ = +),
+  grading speculative session types.
+* `TropicalAdapterPath.lean` — the **min-max** (bottleneck) semiring
+  (⊕ = min, ⊗ = max), grading adapter paths; home of the `hub_ceiling` no-go.
+* The twins are connected by the order-reversing involution `g ↦ maxGrade − g`,
+  proved here as a lattice **anti-isomorphism** (De Morgan): it exchanges
+  `min` and `max`.
+* `lake build` is green; every headline theorem depends only on `propext`
+  (+ `Quot.sound`) — no `sorry`, no `Classical.choice`.
+
+== Build and verify
+
+[source,bash]
+----
+# The toolchain is pinned in ./lean-toolchain (leanprover/lean4:v4.13.0);
+# elan reads it automatically. No network deps — Init only.
+lake build
+
+# Independent axiom audit of the headline theorems:
+lake env lean /dev/stdin <<'EOF'
+import TropicalSessionTypes
+import TropicalAdapterPath
+#print axioms Hyperpolymath.Tropical.soundness
+#print axioms Hyperpolymath.Tropical.tropical_grade_le_sequentialTotal
+#print axioms Hyperpolymath.ProtocolSquisher.Tropical.pathCost_mono
+#print axioms Hyperpolymath.ProtocolSquisher.Tropical.hub_ceiling
+#print axioms Hyperpolymath.ProtocolSquisher.Tropical.dualGrade_invol
+EOF
+----
+
+Expected: each prints `depends on axioms: [propext]` or `[propext, Quot.sound]`.
+CI runs exactly this (`.github/workflows/lean.yml`).
+
+== File 1 — `TropicalSessionTypes.lean` (max-plus)
+
+Namespace `Hyperpolymath.Tropical`. Grades speculative session types so that the
+*static* type-level cost equals the *dynamic* wall-clock cost.
+
+[cols="1,3"]
+|===
+| Construct | Meaning
+
+| `Tropical` | carrier `val n \| bot`; `bot` is −∞ (additive identity of `max`)
+| `tAdd` / `tMul` | `⊕ = max`, `⊗ = +` (nat addition)
+| `CommSemiring Tropical` | all 13 laws wired from the individually-proved theorems
+| `Session` | `end_session \| send \| recv \| spec_par` (speculative parallel branch)
+| `grade : Session → Tropical` | static cost; `spec_par` uses `tAdd` (= max over branches)
+| `Span : Session → Nat` | dynamic wall-clock cost
+| `soundness` | `grade s = val (Span s)` — static = dynamic, exactly
+| `grade_ne_bot` | every session has finite cost
+| `sequentialTotal` | the naïve QTT billing (sum over branches)
+| `tropical_grade_le_sequentialTotal` | `Span s ≤ sequentialTotal s` (QTT refinement)
+|===
+
+Toolchain note: Lean 4.13.0 core ships `Zero` but **not** `One`, so the file
+defines a minimal local `One` class plus an `OfNat _ 1` bridge to keep the
+Mathlib-compatible interface and `1` notation working without Mathlib.
+
+== File 2 — `TropicalAdapterPath.lean` (min-max / bottleneck)
+
+Namespace `Hyperpolymath.ProtocolSquisher.Tropical`. Grades adapter paths in
+Protocol Squisher's 4-class transport semilattice (Concorde / Business /
+Economy / Wheelbarrow), where path cost is the *bottleneck* (worst step).
+
+[cols="1,3"]
+|===
+| Construct | Meaning
+
+| `TransportClass`, `grade`, `maxGrade` | 4 classes; `grade` embeds them as `0..3` (0 = best)
+| `tcJoin` + `tcJoin_*` | the worst-of-two join semilattice (comm/assoc/idem, Concorde identity)
+| `AdapterPath` (`abbrev`) | `List TransportClass`; `abbrev` so List lemmas apply through the alias
+| `pathCost`, `pathCost_cons`, `pathCost_mono`, `pathCost_append` | bottleneck cost and its algebra
+| `tcAdd`/`tcMul`/`tcZero`/`tcOne` + axioms | the min-max semiring (`⊕ = min`, `⊗ = max`), a dioid
+| `minimax_path_optimal` | the foldl-min over alternatives is the optimal (lowest-bottleneck) path
+| `pathCost_le_sequential` | bottleneck ≤ naïve sequential total (the min-max analogue of QTT refinement)
+| `hub_ceiling` | *the no-go corollary* (see below)
+|===
+
+=== `hub_ceiling` — the closing result
+
+`hub_ceiling : e ∈ path → grade e ≤ pathCost path`. Any path routing through an
+edge of grade `g` costs at least `g`. Read as interop policy: one shared hub
+caps the fidelity of every format that must pass through it, so "universal" and
+"high fidelity" are contradictory the moment any format embeds at grade > 0;
+universal *low* fidelity is the achievable point (that is what JSON already is).
+This corollary closes Protocol Squisher's universal-interoperability claim using
+the project's own algebra. Machine-checked, depends only on `propext`.
+
+== The duality: `g ↦ maxGrade − g`
+
+`dualGrade n = maxGrade − min n maxGrade` is the order-reversing involution on
+`[0, maxGrade]`.
+
+[cols="1,2"]
+|===
+| Theorem | Statement
+
+| `dualGrade_invol` | `dualGrade (dualGrade n) = n` for `n ≤ maxGrade`
+| `dual_tcAdd_is_max` | `dual (min a b) = max (dual a) (dual b)`
+| `dual_tcMul_is_min` | `dual (max a b) = min (dual a) (dual b)`
+|===
+
+These are the precise, *provable* statements of the connection between the
+min-max transport semiring and the max-plus session semiring: `dualGrade` is a
+lattice **anti-isomorphism** that swaps `min` and `max` by De Morgan. It is
+**not** a semiring homomorphism from (min,max) to (max,+).
+
+[WARNING]
+====
+The inherited file contained a theorem `dual_tcMul_bounded` asserting
+`dual (max m n) = dual m + dual n − maxGrade`. That statement is *false*
+(`m = 1, n = 2`: LHS `dual 2 = 1`, RHS `2 + 1 − 3 = 0`) — its own comment
+admitted as much. It is replaced by the true De Morgan dual `dual_tcMul_is_min`
+above. The migration repaired theorems; it did not force-prove the false one.
+====
+
+== Provenance and honesty
+
+The min-max file's *source* is the frozen provenance archive in the sibling
+repo: `protocol-squisher/provenance/proofs/tropical/TropicalAdapterPath.lean`.
+That copy is evidence and is left **unchanged**. As inherited, neither twin
+compiled on any installed toolchain (the headers' "Verified" claims were never
+true — corroborating protocol-squisher's `PROVENANCE.adoc`). Only `pathCost_mono`
+and `hub_ceiling` had previously been machine-checked, in isolation. The repair
+inventory is recorded verbatim in the migration commit and in `CHANGELOG.md`.
+
+== Relationship to the rest of the repo and the estate
+
+* *Isabelle/HOL* (`Tropical*.thy`, `ROOT`): the matrix-algebra / Kleene /
+  determinant development of the same max-plus and min-plus semirings. The Lean
+  files are the lightweight, dependency-free, executable core; the Isabelle
+  files are the heavyweight algebra. See `docs/HANDOVER_v2.adoc` and
+  `docs/BUILD-STATUS-2026-04-26.adoc` for the Isabelle build state.
+* *protocol-squisher*: `hub_ceiling` is the result that closes its universal
+  claim; the min-max file originated there.
+* *typed-wasm*, *echo-types*: downstream target and sibling formal-foundations
+  work (see README "Companion repositories").
+
+== Theorem index (axioms audited 2026-06-11, Lean 4.13.0)
+
+[cols="2,1,1"]
+|===
+| Theorem | File | Axioms
+
+| `soundness` | SessionTypes | propext
+| `tropical_grade_le_sequentialTotal` | SessionTypes | propext, Quot.sound
+| `grade_ne_bot` | SessionTypes | propext
+| `pathCost_mono` | AdapterPath | propext
+| `hub_ceiling` | AdapterPath | propext
+| `pathCost_append` | AdapterPath | propext, Quot.sound
+| `pathCost_le_sequential` | AdapterPath | propext, Quot.sound
+| `dualGrade_invol` | AdapterPath | propext, Quot.sound
+| `dual_tcAdd_is_max` | AdapterPath | propext, Quot.sound
+| `dual_tcMul_is_min` | AdapterPath | propext, Quot.sound
+|===
+
+== Open items (carried from the file headers)
+
+* Generalise `minimax_path_optimal` to full graph-algorithmic Dijkstra
+  correctness (Mohri 2002).
+* State the QTT quotient morphism explicitly (currently proved via the
+  refinement theorem, not stated as a morphism).
+* Add recursion / choice to `Session`; multiparty extension.
+* Cross-verify the Lean duality against the Isabelle `Tropical_Ordinal_Bridge`.
