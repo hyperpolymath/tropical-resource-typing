@@ -174,9 +174,12 @@ audit, failing on any `sorry` or `Classical.choice`.
 == Relationship to the rest of the repo
 
 * `TropicalSessionTypes.lean` — the max-plus semiring `Resource.Instances.MaxPlus`
-  re-exports (rather than duplicates).
+  re-exports (rather than duplicates). `Resource.Bridge` shows the session grading
+  is resource-algebra-structured and restates the QTT refinement inside `⊑`.
 * `TropicalAdapterPath.lean` — the bottleneck algebra that `Resource.Instances.MinMax`
-  cleans up to an honestly-infinite carrier.
+  cleans up to an honestly-infinite carrier. `Resource.Bridge` embeds it, makes the
+  bounded-`∞` approximation explicit (`embed_tcZero_ne_zero`), and restates
+  `hub_ceiling` in `⊑` (`hub_ceiling_le`).
 * Isabelle/HOL (`ROOT`, `Tropical*.thy`) — a separate heavyweight development,
   currently RED and not re-run here; see `docs/BUILD-STATUS-2026-04-26.adoc`.
 * `Resource.EchoBridge` / `docs/ECHO-RESIDUE-BRIDGE.adoc` — the boundary note: a

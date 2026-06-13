@@ -12,6 +12,7 @@ import Resource.Instances.MinMax
 import Resource.Stress
 import Resource.EchoBridge
 import Resource.Conformance
+import Resource.Bridge
 
 /-!
   # `Resource` — the resource-grade axis (aggregator)
@@ -47,4 +48,9 @@ import Resource.Conformance
   * `Resource.Stress`     — the tropical carriers are proved **infinite**.
   * `Resource.EchoBridge` — a resource algebra may *measure* opaque (Echo)
                             residues; Echo is **not** a resource instance.
+  * `Resource.Conformance`— all five instances satisfy the one interface, and a
+                            parametric consumer lemma instantiates at each.
+  * `Resource.Bridge`     — the two original twins (`TropicalSessionTypes`,
+                            `TropicalAdapterPath`) exhibited as instances of this
+                            axis (QTT refinement and `hub_ceiling` restated in `⊑`).
 -/

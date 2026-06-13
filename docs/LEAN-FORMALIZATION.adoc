@@ -195,7 +195,15 @@ inventory is recorded verbatim in the migration commit and in `CHANGELOG.md`.
 
 * Generalise `minimax_path_optimal` to full graph-algorithmic Dijkstra
   correctness (Mohri 2002).
-* State the QTT quotient morphism explicitly (currently proved via the
-  refinement theorem, not stated as a morphism).
+* [.line-through]#State the QTT quotient morphism explicitly# — *done.* The QTT
+  refinement is now stated inside the resource order as
+  `Resource.Bridge.grade_le_sequential` (`grade s ⊑ val (sequentialTotal s)`), and
+  the session constructors are shown to be the resource operations
+  (`grade_spec_par = ⊞`, `grade_send = val 1 ⊠ ·`). See `Resource.Bridge`.
+* [.line-through]#Connect the two structures by constructing a functor# — *done.*
+  `Resource.Bridge` exhibits both twins as resource-algebra instances: max-plus via
+  `Resource.Instances.MaxPlus`, and the bottleneck algebra via
+  `Resource.Instances.MinMax` (with `embed_tcZero_ne_zero` making the bounded-`∞`
+  approximation explicit, and `hub_ceiling_le` restating `hub_ceiling` in `⊑`).
 * Add recursion / choice to `Session`; multiparty extension.
 * Cross-verify the Lean duality against the Isabelle `Tropical_Ordinal_Bridge`.
