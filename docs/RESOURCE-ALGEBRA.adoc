@@ -1,0 +1,183 @@
+// SPDX-License-Identifier: MPL-2.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+= The resource-grade axis: a reusable resource-algebra interface
+Jonathan D.A. Jewell
+2026-06-13
+:toc: preamble
+:icons: font
+:sectnums:
+
+Authoritative reference for the `Resource.*` Lean 4 library — the
+consumer-facing *resource-grade axis* that `tropical-resource-typing` exports for
+downstream languages such as `my-lang`. Pinned to *Lean 4.13.0*
+(`lean-toolchain`), `import Init` only, *no Mathlib*.
+
+The two pre-existing root files (`TropicalSessionTypes.lean`,
+`TropicalAdapterPath.lean`) are unchanged; the new `Resource.*` layer generalises
+their algebra into a reusable interface and adds the missing instances, the
+transport theorem, the infinite-carrier stress test, and the Echo bridge.
+
+== TL;DR
+
+* One import: `import Resource`.
+* `Resource.ResourceAlgebra R` — the interface: an ordered semiring with monotone
+  operations. Linear, affine, max-plus, min-plus, min-max all instantiate it.
+* `Resource.parametric_resource_transport` — the single fact downstream soundness
+  proofs depend on. Proved abstractly; instantiates at every algebra for free.
+* `Resource.Stress` — the tropical carriers are proved *infinite*.
+* `Resource.EchoBridge` — a resource algebra may *measure* Echo residues; Echo is
+  not a resource instance. No `echo-types` dependency.
+* `lake build` green; new theorems depend on nothing, or only `propext` /
+  `Quot.sound`.
+
+== Layers
+
+[cols="2,3"]
+|===
+| Module | Role
+
+| `Resource.Algebra.Interface`
+| `ResourceSemiring` — ops (`zero one add mul`) + the semiring laws. Operations
+  are bundled as *fields* (not core `Add`/`Mul`/`One`), so the interface is
+  self-contained and free of any `One`-class / notation collision with
+  `TropicalSessionTypes.lean`. Notation: `⊞` (add / choice), `⊠` (mul / seq).
+
+| `Resource.Algebra.Ordered`
+| `ResourceAlgebra` extends `ResourceSemiring` with an order `le` (`⊑`) that is a
+  *preorder* (reflexive, transitive) and under which both operations are
+  *monotone*. `PartialOrderedResourceAlgebra` is an optional antisymmetric
+  refinement — not assumed by the core.
+
+| `Resource.Algebra.Dioid`
+| The canonical dioid-order builder. For any *idempotent* (`a ⊞ a = a`) resource
+  semiring, the order `a ⊑ b ⇔ a ⊞ b = b` yields all order/monotonicity laws
+  *algebraically* — no case split on the carrier. Used by the tropical instances.
+
+| `Resource.Algebra.ParametricLaws`
+| `ConsumerLawBundle` (alias `GenericResourceTypingLaws`) and the transport
+  theorem `parametric_resource_transport` (alias
+  `resource_laws_sufficient_for_consumers`).
+|===
+
+== The interface
+
+`ResourceAlgebra R` requires only what generic quantitative/resource consumers
+use:
+
+[cols="1,3"]
+|===
+| Component | Law(s)
+
+| `add` (`⊞`) | associative, commutative, identity `zero`
+| `mul` (`⊠`) | associative, identity `one`
+| `zero`      | additive identity; annihilates `mul` on both sides
+| distributivity | left and right
+| `le` (`⊑`)  | reflexive, transitive (a preorder)
+| monotonicity | `add` and `mul` monotone in `⊑` (one- and two-sided)
+|===
+
+Intended reading: `⊞` combines *alternative* demands / chooses a branch; `⊠` is
+*sequential* composition / accumulation; `a ⊑ b` is grade subsumption ("`a`
+refines `b`").
+
+NOT baked in (so finite usage and infinite tropical instances share one
+interface): finite carrier, additive idempotence, non-idempotence, `mul`
+commutativity, totality, decidable equality, antisymmetry, or any
+destruct/reflexivity proof strategy.
+
+== Instances and their tropical conventions
+
+[cols="1,1,1,1,1,3", options="header"]
+|===
+| Instance | carrier | `zero` | `one` | `⊞` / `⊠` | order direction (`a ⊑ b`)
+
+| `Linear`  | `{0,1,ω}` | `0` | `1` | usage-add / scale
+| `a = b` or `b = ω`. `0` and `1` *incomparable* — no weakening (linear).
+
+| `Affine`  | `{0,1,ω}` | `0` | `1` | usage-add / scale
+| total chain `0 ⊑ 1 ⊑ ω` — weakening allowed (affine). Same algebra as `Linear`;
+  differs *only* in the order.
+
+| `MaxPlus` | `ℕ ∪ {−∞}` | `bot` (`−∞`) | `val 0` | `max` / `+`
+| numeric `≤` with `bot` least. Smaller = cheaper = better. (Re-exports the
+  max-plus semiring proved in `TropicalSessionTypes.lean`.)
+
+| `MinPlus` | `ℕ ∪ {+∞}` | `top` (`+∞`) | `val 0` | `min` / `+`
+| *reverse* numeric: `val m ⊑ val n ⇔ n ≤ m`. `top` least; smaller cost is better
+  (higher). Shortest-path / Mohri semiring.
+
+| `MinMax`  | `ℕ ∪ {+∞}` | `top` (`+∞`) | `val 0` | `min` / `max`
+| *reverse* numeric (as MinPlus). Bottleneck algebra; the clean infinite-carrier
+  counterpart of `TropicalAdapterPath.lean` (`hub_ceiling`).
+|===
+
+[NOTE]
+====
+For every dioid (tropical) instance the order is the *canonical* one,
+`a ⊑ b ⇔ a ⊞ b = b`, i.e. the additive identity is the bottom and `⊞` is the
+join. Max-plus lands on plain numeric `≤` because its join is `max`; min-plus and
+min-max land on the *reverse* of numeric `≤` because their join is `min`. Each
+instance proves a `le_val_val` lemma spelling this out, plus a `bot_le`/`top_le`
+that names the least element.
+====
+
+Each instance also provides a `PartialOrderedResourceAlgebra` (the order is a
+genuine partial order).
+
+== The parametric transport theorem
+
+[source,lean]
+----
+theorem parametric_resource_transport (R) [ResourceAlgebra R] : ConsumerLawBundle R
+theorem resource_laws_sufficient_for_consumers (R) [ResourceAlgebra R] : ConsumerLawBundle R
+----
+
+`ConsumerLawBundle R` packages every algebraic and order fact a generic resource
+type system needs: the semiring laws, the preorder laws, and one- and two-sided
+monotonicity of both operations. The contract for downstream languages:
+
+. Prove resource soundness *parametrically* over `[ResourceAlgebra R]`, quoting
+  only `ConsumerLawBundle`.
+. Instantiate at `Linear`, `Affine`, `MaxPlus`, `MinPlus`, or `MinMax`. No
+  algebraic fact is re-proved.
+
+The theorem is proved entirely from the interface and never inspects a carrier —
+the reason it survives instantiation at the infinite tropical carriers.
+
+== Tropical as an infinite-carrier stress test
+
+`Resource.Stress` defines `Resource.Infinite T := ∃ f : ℕ → T, ∀ a b, f a = f b → a = b`
+and proves `infinite_maxPlus`, `infinite_minPlus`, `infinite_minMax`. It then
+checks that `parametric_resource_transport` instantiates at each infinite carrier.
+Finite `{0,1,ω}` could be discharged by enumeration; the tropical carriers cannot,
+so the abstraction is validated as more than a finite reification.
+
+== Build, verify, axiom-audit
+
+[source,bash]
+----
+lake build                       # both libraries; green, no network deps
+
+lake env lean /dev/stdin <<'EOF'
+import Resource
+open Resource
+#print axioms parametric_resource_transport
+#print axioms Resource.Instances.infinite_maxPlus
+#print axioms Resource.Instances.Linear.instResourceAlgebra
+EOF
+# Expected: "no axioms" or "[propext]" / "[propext, Quot.sound]".
+----
+
+CI (`.github/workflows/lean.yml`) runs `lake build` then the `#print axioms`
+audit, failing on any `sorry` or `Classical.choice`.
+
+== Relationship to the rest of the repo
+
+* `TropicalSessionTypes.lean` — the max-plus semiring `Resource.Instances.MaxPlus`
+  re-exports (rather than duplicates).
+* `TropicalAdapterPath.lean` — the bottleneck algebra that `Resource.Instances.MinMax`
+  cleans up to an honestly-infinite carrier.
+* Isabelle/HOL (`ROOT`, `Tropical*.thy`) — a separate heavyweight development,
+  currently RED and not re-run here; see `docs/BUILD-STATUS-2026-04-26.adoc`.
+* `Resource.EchoBridge` / `docs/ECHO-RESIDUE-BRIDGE.adoc` — the boundary note: a
+  resource algebra may measure Echo residues; Echo is not a resource instance.

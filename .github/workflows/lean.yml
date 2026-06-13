@@ -44,6 +44,7 @@ jobs:
           cat > /tmp/axcheck.lean <<'EOF'
           import TropicalSessionTypes
           import TropicalAdapterPath
+          import Resource
           #print axioms Hyperpolymath.Tropical.soundness
           #print axioms Hyperpolymath.Tropical.tropical_grade_le_sequentialTotal
           #print axioms Hyperpolymath.ProtocolSquisher.Tropical.pathCost_mono
@@ -51,6 +52,19 @@ jobs:
           #print axioms Hyperpolymath.ProtocolSquisher.Tropical.dualGrade_invol
           #print axioms Hyperpolymath.ProtocolSquisher.Tropical.dual_tcAdd_is_max
           #print axioms Hyperpolymath.ProtocolSquisher.Tropical.dual_tcMul_is_min
+          -- Resource-grade axis: interface, transport theorem, instances, stress test
+          #print axioms Resource.parametric_resource_transport
+          #print axioms Resource.resource_laws_sufficient_for_consumers
+          #print axioms Resource.ResourceAlgebra.ofIdempotentAdd
+          #print axioms Resource.Instances.Linear.instResourceAlgebra
+          #print axioms Resource.Instances.Affine.instResourceAlgebra
+          #print axioms Resource.Instances.MaxPlus.instResourceAlgebra
+          #print axioms Resource.Instances.MinPlus.MinPlus.instResourceAlgebra
+          #print axioms Resource.Instances.MinMax.MinMax.instResourceAlgebra
+          #print axioms Resource.Instances.infinite_maxPlus
+          #print axioms Resource.Instances.infinite_minPlus
+          #print axioms Resource.Instances.infinite_minMax
+          #print axioms Resource.echoResidueAsMaxPlusCost
           EOF
           out="$(lake env lean /tmp/axcheck.lean 2>&1)"
           echo "$out"

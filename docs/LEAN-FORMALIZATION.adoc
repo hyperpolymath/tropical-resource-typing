@@ -12,6 +12,17 @@ This is the authoritative reference for the Lean 4 development that lives at the
 repository root: two *order-reversing twins* and the duality connecting them,
 plus how to build and independently re-verify them.
 
+[TIP]
+====
+Built *on top of* these two twins is the reusable **resource-grade axis**
+(`Resource.*`, `import Resource`): a consumer-facing ordered-semiring /
+resource-algebra interface with linear, affine, max-plus, min-plus and min-max
+instances, the parametric transport theorem for downstream consumers, the
+tropical infinite-carrier stress test, and the Echo residue-measure bridge.
+That layer is documented separately in `docs/RESOURCE-ALGEBRA.adoc` and contracted
+in `FOUNDATION_CONTRACT.md`. This file remains about the two underlying twins.
+====
+
 [NOTE]
 ====
 The older `docs/FORMAL-PROOFS.adoc` predates the v6.0 source: its Lean code

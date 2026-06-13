@@ -20,6 +20,11 @@ this project aims to follow [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(lean4): add the **resource-grade axis** — `Resource.*` library exporting a reusable resource-algebra interface (`ResourceSemiring` + ordered `ResourceAlgebra`, no Mathlib), the canonical dioid-order builder, concrete instances (Linear/Affine `{0,1,ω}`, MaxPlus, MinPlus, MinMax), and the parametric transport theorem `parametric_resource_transport` (alias `resource_laws_sufficient_for_consumers`) over `ConsumerLawBundle`; aggregator `Resource.lean`; `lake build` green, new theorems depend only on propext/Quot.sound (or nothing)
+- feat(lean4): prove tropical carriers are infinite (`Resource.Stress`: `infinite_maxPlus/minPlus/minMax`) — the infinite-carrier stress test that the abstraction is not a finite `{0,1,ω}` reification
+- feat(lean4): add `Resource.EchoBridge` — abstract `ResidueMeasure` showing a resource algebra may measure (opaque) Echo residues, direction `E → R`, with a compiling max-plus witness; no `echo-types` dependency
+- docs: add `FOUNDATION_CONTRACT.md`, `docs/RESOURCE-ALGEBRA.adoc`, `docs/ECHO-RESIDUE-BRIDGE.adoc` (resource grade vs resource algebra vs tropical instance vs residue measure; the "tropical is not Echo" boundary invariant)
+- ci(lean4): extend `lean.yml` axiom audit to the new `Resource.*` headline theorems and instances
 - feat(lean4): migrate the min-max transport semiring (TropicalAdapterPath) in beside the max-plus twin; pin Lean 4.13.0 via lean-toolchain; add lakefile + lake-manifest; `lake build` green
 - feat(lean4): prove the De Morgan duality bridge — dualGrade_invol, dual_tcAdd_is_max (dual of min = max), dual_tcMul_is_min (dual of max = min)
 - docs(lean4): add docs/LEAN-FORMALIZATION.adoc (authoritative Lean reference: build/verify recipe, theorem index, axiom audit, provenance) + README section
