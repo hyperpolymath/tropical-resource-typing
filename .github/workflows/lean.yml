@@ -65,6 +65,10 @@ jobs:
           #print axioms Resource.Instances.infinite_minPlus
           #print axioms Resource.Instances.infinite_minMax
           #print axioms Resource.echoResidueAsMaxPlusCost
+          -- Bridges: the two original twins as instances of the axis
+          #print axioms Resource.Bridge.grade_le_sequential
+          #print axioms Resource.Bridge.hub_ceiling_le
+          #print axioms Resource.Bridge.embed_tcZero_ne_zero
           EOF
           out="$(lake env lean /tmp/axcheck.lean 2>&1)"
           echo "$out"
