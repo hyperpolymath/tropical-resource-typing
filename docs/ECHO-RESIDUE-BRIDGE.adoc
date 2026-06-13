@@ -1,0 +1,78 @@
+// SPDX-License-Identifier: MPL-2.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+= Bridge note: resource algebras and Echo residue measures
+Jonathan D.A. Jewell
+2026-06-13
+:toc: preamble
+:icons: font
+
+This is the boundary note between the *resource-grade axis* exported by this
+repository and the *Echo* modality. It exists to keep one invariant unambiguous.
+
+== The invariant
+
+[IMPORTANT]
+====
+A resource algebra from this repository may be *consumed by* an Echo
+residue-measure interface. That does **not** make Echo a resource instance.
+
+The sanctioned direction is
+
+  resource algebra  ──▶  residue measure
+
+and never
+
+  Echo  ──▶  resource / Soundness instance
+====
+
+* *Tropical is a resource-algebra foundation* (max-plus, min-plus, min-max are
+  instances of `Resource.ResourceAlgebra`). It belongs on the resource-grade axis.
+* *Tropical is not the Echo modality.* Do not describe tropical as Echo.
+* *Echo is not a resource instance.* Do not describe Echo as an instance of the
+  resource algebra or of resource soundness.
+* Echo may *measure its residues* using a resource algebra — assigning a grade
+  (a cost / latency / bottleneck / usage) to a residue. That is a consumer
+  relationship, pointing from the residue carrier into the resource algebra.
+
+== What is machine-checked
+
+`Resource.EchoBridge` (in the Lean library) makes the direction precise:
+
+[source,lean]
+----
+structure ResidueMeasure (E : Type) (R : Type) [ResourceAlgebra R] where
+  combine : E → E → E          -- how residues accumulate (Echo-side, opaque)
+  empty   : E                  -- the null residue
+  measure : E → R              -- the measurement into a resource grade
+  measure_empty   : measure empty = one
+  measure_combine : ∀ e₁ e₂, measure (combine e₁ e₂) = measure e₁ ⊠ measure e₂
+----
+
+* `E` — the residue carrier — is an **opaque type**. It carries **no**
+  `ResourceAlgebra` instance and nothing in the file gives it one. `E` stands in
+  for an Echo residue carrier; Echo is a modality, not a resource grade.
+* `R` is a genuine `ResourceAlgebra` (any instance: linear, affine, or a tropical
+  one).
+* The homomorphism maps `E → R`: residue accumulation (`combine`) is measured by
+  sequential composition (`⊠`) in the resource algebra. The dependency points
+  *into* the resource algebra.
+
+A concrete, compiling witness (`Resource.echoResidueAsMaxPlusCost`) measures an
+opaque bag of residue events (`List Unit`) into the max-plus cost algebra by event
+count. It type-checks, so the `E → R` direction is genuinely populated — and
+`List Unit` never becomes a `ResourceAlgebra`.
+
+== No dependency on echo-types
+
+This repository does **not** depend on `hyperpolymath/echo-types`, and
+`Resource.EchoBridge` imports nothing from it. `E` is abstract precisely so that a
+downstream Echo residue interface can supply it *there* without this repository
+ever depending on Echo. If echo-types later wishes to consume these algebras, it
+instantiates `ResidueMeasure` (or its own analogue) on its side; the arrow still
+points from Echo's residues into the resource algebra, never the reverse.
+
+== See also
+
+* `FOUNDATION_CONTRACT.md` — the full foundation contract and consumer rule.
+* `docs/RESOURCE-ALGEBRA.adoc` — the resource-algebra interface, instances, and
+  the parametric transport theorem.

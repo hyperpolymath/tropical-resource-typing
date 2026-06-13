@@ -91,6 +91,35 @@ The two are connected by the order-reversing involution `g ↦ maxGrade − g`,
 proved here as a lattice *anti-isomorphism* (De Morgan: it exchanges min and
 max), not a semiring homomorphism.
 
+=== The resource-grade axis (`Resource.*`)
+
+On top of the two twins sits a reusable, consumer-facing *resource-grade axis*
+for downstream languages (e.g. `my-lang`): a single Lean library, `import Resource`.
+
+`Resource.Algebra.*`::
+The interface — `ResourceSemiring` (ops + semiring laws) and the ordered
+`ResourceAlgebra` (preorder + monotone operations), bundled with the canonical
+dioid-order builder and the parametric transport theorem
+`parametric_resource_transport` (alias `resource_laws_sufficient_for_consumers`)
+over `ConsumerLawBundle`.
+
+`Resource.Instances.*`::
+Concrete instances all satisfying the one interface: `Linear` and `Affine`
+(`{0,1,ω}` usage, differing only in order), `MaxPlus`, `MinPlus`, and `MinMax`.
+
+`Resource.Stress`::
+Proves the tropical carriers are *infinite* — the stress test that the
+abstraction is not a finite `{0,1,ω}` reification.
+
+`Resource.EchoBridge`::
+A resource algebra may *measure* Echo residues (direction `E → R`); Echo is not a
+resource instance. No `echo-types` dependency.
+
+The contract and vocabulary (resource grade vs resource algebra vs tropical
+instance vs residue measure; "tropical is not Echo") are in
+link:FOUNDATION_CONTRACT.md[`FOUNDATION_CONTRACT.md`]; full detail in
+link:docs/RESOURCE-ALGEBRA.adoc[`docs/RESOURCE-ALGEBRA.adoc`].
+
 [source,bash]
 ----
 lake build          # green; no network deps
