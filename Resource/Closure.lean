@@ -61,7 +61,8 @@ import Resource.Instances.MinMax
   tropical dioid instances.  This keeps the abstract layer honest while still
   giving both instances the all-pairs identity-subsumption fact.
 
-  No `sorry`, `admit`, `native_decide`, or axiom is used.
+  Proof-debt-clean: no incomplete-proof tactics, no compiled-decision escape
+  hatch, and no axiom declarations (per the trusted-base reduction policy).
 -/
 
 namespace Resource.Closure
