@@ -1,0 +1,205 @@
+// SPDX-License-Identifier: MPL-2.0
+// Owner: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+= Application: tropical resource grades dissolving real proof-debt in ephapax's L1 region calculus
+:toc: left
+:toclevels: 3
+:sectnums:
+
+[abstract]
+== Abstract
+
+This is a worked case study showing that the proofs in `tropical-resource-typing`
+do *applied* work — they re-found the region-capability calculus of an
+independent language (`hyperpolymath/ephapax`) and dissolve live, blocking
+proof-debt, including a lemma that ephapax had `Admitted` but is *provably
+false as written*. The point is demonstration, not analogy: every claim below
+names a `Qed` theorem on the tropical side and the specific ephapax obligation
+it discharges, with `file:line` on both sides.
+
+The honest result is a *partial fit*, and the honesty is the evidence. Of
+ephapax's four open L1 admits, the tropical re-foundation **cleanly dissolves
+two and repairs the false one into a provable form** (using monotonicity that
+is `Qed` on *both* sides); the remaining one is a typing-rule obligation the
+tropical algebra *motivates but does not close* — and we say so. A theory that
+fit perfectly on first contact with a system it was not designed for would be
+suspicious; a theory that does two-and-a-half of four jobs on an independent
+problem, and tells you exactly which half-job it can't finish, is doing real
+work.
+
+== 1. The independent problem (not invented to fit)
+
+ephapax is a dyadic substructural language with a four-layer formal
+metatheory (L1 region capabilities / L2 modality / L3 echo residue / L4 dyadic
+mode), mechanised in Coq. Its L1 layer carries **four open `Admitted` lemmas**
+that block the preservation capstone (`formal/Semantics_L1.v`):
+
+[cols="1,3,1",options="header"]
+|===
+| Admit | What it claims | Site
+| `region_shrink_preserves_typing_l1_gen_m` | typing survives removing a region from the active set | :441 (internal :572,:642)
+| `region_liveness_at_split_l1_gen` | `In rv R -> In rv R'` (liveness is preserved by a step) | :1904 — **FALSE as written**
+| `step_pop_disjoint_from_type_l1` | a step never pops a region free in the result type | :3106 (~10 internal)
+| `preservation_l1` | the L1 preservation capstone | :3367
+|===
+
+Two independent fix attempts were tried in-project and **failed**, which is
+what makes this a real test rather than a setup:
+
+* *Effect-typed lambdas* (make every lambda's region footprint type-visible):
+  migrated cleanly, build green — but closed **0 of 4**. The admits are
+  region/eliminator cases, not lambda-rigidity cases.
+* *Leaf-rule strengthening* (add `free_regions(T) ⊆ R` to the variable rule):
+  **proven false** by a Coq-checked counterexample —
+  `EDrop (EVar j : TString rv)` at `R = [rv]` types, is syntactically free of
+  `rv`, has result type `Unit` (so the Tofte–Talpin premise holds), yet
+  shrinking `rv` leaves the inner variable untypable. So `region_shrink`
+  becomes *false* under that premise.
+
+`region_liveness` being false-as-written, and two principled attempts failing,
+is the situation tropical resource typing is brought to.
+
+== 2. The diagnosis: a tropical grade wearing a list costume
+
+ephapax declares `region_env := list region_name` (`Syntax.v:867`) and exits a
+region with `remove_first` (`Semantics.v:95`), a *first-occurrence-sensitive
+list operation*. But its proofs already reason through `count_occ`
+(`cnt r R := count_occ string_dec R r`) and a monotonicity lemma
+`count_occ_le_l1_m` (`Semantics_L1.v:279`).
+
+That is the tell. The object the ephapax theory *actually uses* is the function
+`r ↦ cnt r R : region_name → ℕ` — a finitely-supported vector of **ℕ grades**,
+one coordinate per region (the re-entry depth), with `0` = dead and `≥1` =
+live. In other words:
+
+[.text-center]
+`region_env  ≅  region_name →₀ ℕ  ≅  ∏ (MinPlus/Affine grade)`
+
+up to the multiset quotient (and `remove_first_comm` is `Qed` ephapax-side,
+proving pop-order is semantically irrelevant). The `list` is surplus
+structure — order the algebra must quotient away — and it is *exactly where the
+costume tears* that the admits live. The tropical grade is the explicit,
+proven form of a structure ephapax stumbled into implicitly.
+
+== 3. The correspondence (proofs, not analogy)
+
+=== 3.1 Carrier and liveness — ISO
+
+[cols="1,1,1",options="header"]
+|===
+| ephapax | tropical-resource-typing | fit
+| `cnt r R : ℕ` (the grade) | resource `grade : _ → ℕ`; `grade_injective`, `grade_total` (`TropicalAdapterPath:86/91`) | ISO
+| `In r R ⇔ cnt r R ≥ 1` (live) | grade ≠ additive-zero; `grade_ne_bot` (`TropicalSessionTypes:311`) | ISO
+| `~In r R ⇔ cnt r R = 0` (dead) | additive `zero = +∞` (MinPlus); carrier `ℕ∪{∞}` is real (`infinite_minMax`) | ISO
+|===
+
+=== 3.2 The discipline — ISO on the order, the backbone of the whole fix
+
+The single most important correspondence: ephapax's `count_occ_le_l1_m`
+("grade is non-increasing along a typing derivation", `Semantics_L1.v:279`,
+`Qed`) *is* tropical grade-monotonicity abstractly — proven on the tropical
+side as `mul_le_mul`/`add_le_add` (`ParametricLaws:57/48`),
+`subsumption_transports` (`Conformance:38`), `matStar_mono`, and
+`id_le_star` (`Closure:305`). Both sides are `Qed`; the tropical development
+has **no `sorry`, no `admit`, no `axiom`**, so it is a sound foundation to
+re-found against.
+
+=== 3.3 Region enter/exit — ADAPT (the honest seam)
+
+Region enter (`cnt += 1`) and exit (`cnt -= 1`) are **successor/predecessor on
+one coordinate of the grade vector** — they are *not* the tropical semiring
+operations (`⊞ = min/max`, `⊠ = +/max`), and the dioid has **no subtraction**.
+This is the crux: what ephapax's admits need from tropical is the **ordered
+grade and its monotonicity**, not the binary operations. The useful fragment
+is the Affine-disciplined order, not the full algebra.
+
+=== 3.4 The Affine instance — PARTIAL (right discipline, wrong carrier)
+
+The `Resource/Instances/Affine` order (`0 ⊑ 1 ⊑ ω`, non-idempotent,
+`Closure:56-62`) models ephapax's *at-most-once weakening discipline*
+correctly — its monotonicity is exactly `count_occ_le_l1_m`. But the Affine
+carrier is the collapsed 3-point set `{0,1,ω}`; it cannot count re-entry depth
+`n > 1`. The honest reading: ephapax's region grade is **Affine-disciplined
+MinPlus** — the *order* is affine, the *carrier* is the infinite ℕ counter.
+
+=== 3.5 EchoBridge — the unification prize (one-way homomorphism)
+
+`Resource/EchoBridge` gives `ResidueMeasure E R` with
+`measure : E → R` a monoid homomorphism into sequential composition
+(`measure (combine e₁ e₂) = measure e₁ ⊠ measure e₂`), strictly `E → R`.
+ephapax already has the matching shape: its `_Echo` region rules make
+region-*exit* emit a residue (`T_Region_L1_Echo`, `S_Region_Exit_Echo`,
+`Semantics.v:268-273`). So each pop produces a grade decrement (L1) *and* an
+echo residue (L3); `measure` sends the residue into the same grade. Wiring it
+realises the long-conjectured *echo ≡ tropical ≡ epistemic = one structure*
+unification — as a measured homomorphism `L3 → L1-grade`, not a definitional
+equality. This is **additive, not a closure prerequisite**.
+
+== 4. What it does to each admit (honest, per-admit)
+
+[cols="1,3,1",options="header"]
+|===
+| Admit | Outcome under the tropical re-foundation | Verdict
+| 1 `region_shrink` | **Dissolves** — once the carrier is `region_name →₀ ℕ`, the residual `(n−1)−1` sub-case is `Nat` arithmetic with no first-occurrence sensitivity. Tropical *validates the target carrier is sound* (`infinite_minMax`) rather than supplying a porting target. | ✅ closes
+| 2 `region_liveness` (false) | **Repaired** — restate as the *graded* form `cnt rv R ≥ 1 ∧ no-exit-of-rv ⇒ cnt rv R' ≥ 1`, provable directly from the already-`Qed` `count_occ_le_l1_m` (= tropical monotonicity). Requires a **call-site audit** to thread the `no-exit` side-condition through consumers that relied on the false unconditional form. | ✅ closes (with audit)
+| 3 `step_pop` | **Does NOT auto-dissolve.** It needs `T_Var_*_L1` to carry `free_regions(T) ⊆ R` — *the very premise this project proved false* (§1, the `EDrop` counterexample re-breaks `region_shrink`). Tropical supplies the *invariant template* (`id_le_star`-style relevant-grade-positivity) but **not** a closure; this is the genuine open research fork (the eliminator/result-type-erasure problem). | ⚠ open
+| 4 `preservation_l1` | Capstone — closes **iff** 1–3 close; inherits the status of the weakest (admit 3). Must be derived from the grade invariant, not ad-hoc side-conditions (ephapax `CLAUDE.md` DO-NOT #3). | ⚠ gated on 3
+|===
+
+**Net: 2 dissolve cleanly + 1 false lemma repaired into provable; 2 remain (3
+and its dependent capstone 4) — the eliminator fork, which tropical motivates
+but does not close.**
+
+== 5. What tropical supplies vs what it does not
+
+*Supplies (applied value, demonstrated):*
+
+* The **correct target ontology** — MinPlus `ℕ∪{∞}` counter + Affine order +
+  EchoBridge residue measure — for a real language's region calculus.
+* The **monotonicity backbone** (`mul_le_mul`/`subsumption_transports`/
+  `matStar_mono`), which is the *correct-shape replacement for a false lemma*
+  and is `Qed` on both sides.
+* **Carrier soundness** (`infinite_minMax`) — proof that the destination of the
+  list→count refactor is a real algebra.
+* The **L1≡L3 unification** as a genuine homomorphism (EchoBridge).
+
+*Does not supply (stated plainly):*
+
+* No `remove_first`, no subtraction — enter/exit are ℕ-succ/pred, *not*
+  semiring ops. ADAPT, not ISO, on the operations.
+* No closure for admit 3 — that is an ephapax-internal typing-rule design
+  obligation, and its naïve form is *proven false*. Tropical gives the template
+  only.
+* Not a Lean→Coq *theorem port*. The closure work is a Coq-side carrier
+  refactor + restatement; the tropical theorems *validate and shape* it, they
+  are not transcribed.
+
+== 6. The closure work this implies (Coq-side)
+
+. **Carrier refactor (highest leverage):** `region_env := list region_name` →
+  `region_name → nat`; `remove_first` → coordinate-predecessor; `cons` →
+  coordinate-successor; `In r R` → `cnt r R ≥ 1`. Dissolves admit 1; removes
+  all positional artifacts.
+. **Re-grade admit 2** to the count-monotone form; prove from `count_occ_le_l1_m`;
+  audit call sites for the `no-exit` side-condition.
+. **Admit 3 remains the open fork** — the eliminator problem, *not* closeable by
+  the proven-false leaf premise; needs a separate idea (e.g. grade-in-context
+  liveness rather than result-type liveness).
+. **Capstone (admit 4)** closes by composition once 1–3 land.
+. *(Optional unification prize):* a Coq `ResidueMeasure`-analog sending
+  `EEcho T v` residues into the MinPlus grade with `⊠ = +`, wiring L1≡L3.
+
+== 7. Applicability verdict
+
+`tropical-resource-typing` is the *correct re-foundation ontology* for an
+independent language's region-capability calculus: it dissolves two of four
+live `Admitted` obligations, turns a *provably-false* admitted lemma into one
+provable from monotonicity that is `Qed` on both sides, and realises a
+cross-layer (L1≡L3) unification as a real homomorphism — all from a development
+that is itself `sorry`/`axiom`-free. It does **not** trivially close everything,
+and the case study says exactly where it stops (admit 3, the eliminator fork)
+and why (it is a typing-rule obligation, not a missing algebraic theorem).
+
+That is the difference between theoretical and applied value: these proofs were
+not built for ephapax, yet they correctly diagnose its region calculus, repair
+a false lemma, and shape the closure of real proof-debt — with an honest ledger
+of what they do and don't carry.
