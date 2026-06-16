@@ -68,6 +68,27 @@ EOF
 Expected: each prints `depends on axioms: [propext]` or `[propext, Quot.sound]`.
 CI runs exactly this (`.github/workflows/lean.yml`).
 
+[NOTE]
+.Independent ground-truth audit — 2026-06-16 (verified, GO)
+====
+An out-of-band trust audit re-ran this from cold (`rm -rf .lake/build && lake
+build`, exit 0, reproduced twice) before an external project built on these
+proofs. Findings: 17 source files → 17 oleans (1:1, zero orphans); pinned Lean
+`v4.13.0`, no Mathlib (empty `lake-manifest`), pure core Lean; **no `sorry`,
+`admit`, `axiom`-decl, `native_decide`, `@[implemented_by]`, `@[extern]`,
+`partial`-in-proofs, `unsafe`, or `opaque`** anywhere (the two keyword hits on
+first scan are confirmed comment text); `decide` appears only on small finite
+`#example` checks (kernel-checked). The kernel `#print axioms` audit above was
+executed and every load-bearing result depends only on `propext` /
+`Quot.sound` or none — **no `sorryAx`, no `Classical.choice`**. Every lemma a
+downstream re-foundation reuses (`grade_ne_bot`, `grade_injective`,
+`grade_total`, `subsumption_transports`, `matStar_mono`, `id_le_star`,
+`infinite_minMax`, the semiring laws, `tcAdd_comm`/`tcJoin_comm`,
+`tropical_grade_le_sequentialTotal`, `parametric_resource_transport`, and the
+`EchoBridge` `ResidueMeasure` homomorphism) is a genuine, non-vacuous,
+kernel-audited proof. Verdict: **trustworthy — strongest of the audited set.**
+====
+
 == File 1 — `TropicalSessionTypes.lean` (max-plus)
 
 Namespace `Hyperpolymath.Tropical`. Grades speculative session types so that the
