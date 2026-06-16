@@ -1,0 +1,185 @@
+// SPDX-License-Identifier: MPL-2.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+= What tropical-resource-typing is — and what we did not invent
+:toc: macro
+:toclevels: 2
+
+_An upfront statement of what the object is, the established structure it
+instantiates, and where the borrowed mathematics ends and our modelling begins.
+Read alongside `FOUNDATION_CONTRACT.md` (operational definition + IS-NOT) and
+`AFFIRMATION.adoc` (the dated, checked ground truth this statement must not
+contradict)._
+
+toc::[]
+
+== What it is (as we use it)
+
+In this repository, "tropical" names a *resource-grade axis*: a single,
+machine-checked interface — `Resource.ResourceAlgebra` (an ordered resource
+semiring, layered as `Resource.ResourceSemiring` + a monotone preorder) — together
+with concrete carriers that instantiate it. The interface fixes exactly the
+algebra a generic resource-typing soundness proof depends on:
+
+* a carrier `R` with `zero`, `one`, choice `⊞` (`add`) and sequential composition
+  `⊠` (`mul`), satisfying the semiring laws;
+* a grade order `⊑` (`le`) that is a *preorder* (reflexive, transitive — the
+  weakest order that supports subsumption / subtyping of grades), with both
+  operations *monotone* with respect to it.
+
+Antisymmetry is deliberately *not* in the core; it is an optional refinement
+(`PartialOrderedResourceAlgebra`). The interface requires no finite carrier, no
+additive idempotence, no multiplicative commutativity, no decidable equality.
+
+The *tropical* instances are particular carriers of this one interface:
+`Resource.Instances.MaxPlus` (`ℕ ∪ {−∞}`, `⊞ = max`, `⊠ = +`),
+`Resource.Instances.MinPlus` (`ℕ ∪ {+∞}`, `⊞ = min`, `⊠ = +`), and
+`Resource.Instances.MinMax` — the *bottleneck* algebra (`⊞ = min`, `⊠ = max`) —
+sitting beside the finite `{0,1,ω}` usage carriers `Linear` and `Affine`. For the
+idempotent (tropical / dioid) carriers the order is the *canonical* dioid order
+`a ⊑ b ⇔ a ⊞ b = b` (built once in `Resource.Algebra.Dioid`, not re-derived per
+instance).
+
+Two facts make this more than a definition. First, transport is proven
+*parametric over the interface*: `Resource.parametric_resource_transport`
+discharges the consumer obligation bundle `ConsumerLawBundle R` for *any*
+`[ResourceAlgebra R]`, never inspecting a carrier — so a downstream proof that
+quotes only `ConsumerLawBundle` holds at linear, affine, max-plus, min-plus and
+min-max *at once*, with no algebraic fact re-proved. Per the in-session axiom
+audit recorded in `AFFIRMATION.adoc`, that theorem depends on *no axioms at all*.
+Second, *cost composition is tropical matrix algebra*: `Resource.Closure` builds
+the `n × n` matrix layer over an arbitrary `[ResourceAlgebra R]` — matrix product,
+powers, and the *Kleene star / closure* — so that at max-plus the closure is
+classical all-pairs least-cost (Floyd–Warshall), and at min-max it is the
+all-pairs bottleneck closure whose corollary is `hub_ceiling`: along a composed
+adapter path the worst link *floors* the achievable fidelity.
+
+That is what "tropical" is here: not a free-standing algebra of interest for its
+own sake, but the *grade* of a resource type system, used carrier-polymorphically
+to bound worst-case cost and protocol round-counts.
+
+== The established structure it instantiates (and where it is from)
+
+The mathematics is entirely standard. The objects above are, in order:
+
+*Idempotent semirings / dioids.* `ResourceAlgebra` is an ordered semiring; the
+tropical carriers are *dioids* (semirings with idempotent addition), whose
+canonical order `a ⊑ b ⇔ a ⊞ b = b` is the textbook dioid order. The canonical
+references are Gondran and Minoux, _Graphs, Dioids and Semirings: New Models and
+Algorithms_ (Springer, 2008), and Golan, _Semirings and their Applications_
+(Kluwer, 1999).
+
+*The (max,+) / tropical algebra.* The max-plus and min-plus carriers are the
+classical (max,+) and (min,+) semirings. The canonical systematic treatment is
+Baccelli, Cohen, Olsder and Quadrat, _Synchronization and Linearity: An Algebra
+for Discrete Event Systems_ (Wiley, 1992); see also the survey work of Gaubert and
+collaborators on max-plus algebra and its applications.
+
+*Kleene algebra and the star / closure.* The matrix closure layer is the Kleene
+star of a (matrix) semiring; all-pairs least-cost as a star is the standard
+Floyd–Warshall-as-closure result. The canonical references are Conway, _Regular
+Algebra and Finite Machines_ (Chapman & Hall, 1971), and Kozen, "A Completeness
+Theorem for Kleene Algebras and the Algebra of Regular Events" (_Information and
+Computation_, 1994).
+
+*Tropical geometry* (for the broader name and intuition). The "tropical" naming
+and the min/max-plus semiring viewpoint are surveyed in Maclagan and Sturmfels,
+_Introduction to Tropical Geometry_ (American Mathematical Society, GSM 161, 2015).
+
+*Quantitative and graded type theory* (the typing side). Grading a type system by
+a semiring is established: Atkey, "The Syntax and Semantics of Quantitative Type
+Theory" (LICS 2018), building on McBride, "I Got Plenty o' Nuttin'" (in _A List of
+Successes That Can Change the World_, Springer LNCS 9600, 2016); and the coeffect /
+graded-modal line of Petricek, Orchard and Mycroft (coeffects), and Gaboardi,
+Katsumata, Orchard, Breuvart and Uustalu, "Combining Effects and Coeffects via
+Grading" (ICFP 2016). Our `⊠`/`⊞`/`⊑` interface is precisely a usage/resource
+semiring of grades in this sense.
+
+These citations are made conservatively: where we are not certain of an exact
+title or year we have named the work at the level of the author and venue rather
+than invent precision. None of the structures above is ours.
+
+== What is ours, and what is not (the contribution boundary)
+
+What is *borrowed* is everything in the previous section: dioids and the canonical
+dioid order, the (max,+) and (min,+) semirings, Kleene/closure and Floyd–Warshall,
+the tropical viewpoint, and semiring-graded typing.
+
+What is *ours* is the *modelling*: applying the dioid as the **grade of a resource
+type system**, exposed as one *carrier-polymorphic* interface, with transport
+proved *once* over that interface and reused at every carrier, aimed at worst-case
+cost analysis and protocol round-bounds. Concretely — and only as far as the
+ground-truth `AFFIRMATION.adoc` checked this session affirms:
+
+* `Resource.parametric_resource_transport` discharges `ConsumerLawBundle R` for an
+  arbitrary `[ResourceAlgebra R]` and, on the in-session `#print axioms` audit,
+  *depends on no axioms at all* — so the same downstream soundness proof
+  instantiates at linear, affine, max-plus, min-plus and min-max without
+  re-proving any algebraic fact (`Resource.Stress`, `Resource.Conformance`).
+* The Lean library `lake build`s green from source with no Mathlib (`import Init`
+  only), 20/20 steps, with *no* `sorry` / `admit` / bare `axiom` /
+  `native_decide`; the headline theorems `soundness`, the QTT refinement
+  `tropical_grade_le_sequentialTotal`, and the bottleneck corollary `hub_ceiling`
+  audit to `propext` (+ `Quot.sound`) only.
+* `Resource.Closure` lifts the closure math generically to the matrix level over
+  *any* `ResourceAlgebra`, so all-pairs least-cost (max-plus) and all-pairs
+  bottleneck (min-max, `hub_ceiling`) are two instantiations of one proof.
+* The axis is *consumed* downstream: it is the resource-grade axis carried into
+  `typed-wasm` (L11).
+
+That is the whole of the claimed usefulness: a kernel-clean, carrier-polymorphic
+grading library with a checkable transport theorem and a checkable consumer. It is
+*not* a claim to a verified production type checker — `AFFIRMATION.adoc` is
+explicit that the proved calculus is an idealised core with no executable checker
+wired to it.
+
+**On contribution (the same stance in every sibling repo).** We did not invent the
+mathematics this work rests on. Graded monads, tropical / idempotent dioids,
+multiparty session types and choreographies, and epistemic / justification logic
+are established structures authored by others, cited above. What is ours is the
+*modelling*: we apply these structures as instruments fitted to specific domains —
+verifiable WebAssembly, federated identity, BEAM sandboxing, structured
+information loss — in places the established corpus had not been instantiated this
+way, and we report only where the fit has already produced *checkable artefacts*.
+The contribution is the model and its demonstrated usefulness, not the underlying
+mathematics. This is deliberate, and it is a strength: a claim that concedes its
+own foundations is survivable; one that claims invention dies at the first
+citation. (Cf. the estate discipline — echo-types' own distinctness claim was
+permitted to terminate negatively, EI-2.)
+
+== Is-not, and what is still open
+
+To keep the boundaries un-eroded (restating the IS-NOT relations from
+`FOUNDATION_CONTRACT.md`, now with the contribution frame above):
+
+* *Tropical is a resource-algebra foundation; it is NOT the Echo modality.* It is
+  not an Echo instance, and Echo is not a tropical / resource instance. The only
+  sanctioned direction is `resource algebra ──consumed by──▶ residue measure`
+  (`E → R` in `Resource.EchoBridge`, where the residue carrier `E` has *no*
+  `ResourceAlgebra` instance); the reverse — `Echo is an instance of resource /
+  soundness` — is forbidden. This repository imports no `echo-types` dependency.
+* *The tropical instances are NOT the interface.* They are carriers of
+  `ResourceAlgebra`; the parametric theory never case-splits a carrier. The
+  infinite tropical carriers exist precisely as stress tests (`Resource.Stress`
+  proves `Resource.Infinite` for them) that the abstraction is not a finite
+  `{0,1,ω}` reification.
+* *The Lean `Resource.*` library is authoritative.* It is the machine-checked
+  source of truth (aggregator `Resource.lean`). Where any prose, the PDF note, or
+  `EXPLAINME.adoc` disagrees, the Lean kernel and `AFFIRMATION.adoc` win.
+* *This is NOT new mathematics.* The dioid, (max,+), Kleene closure and graded
+  typing are all cited above; the contribution is the assembly and its consumer,
+  not the algebra.
+
+Honestly open (do *not* read these as green):
+
+* *The Isabelle/HOL development is SEPARATE and KNOWN-RED.* The `ROOT` +
+  `Tropical*.thy` matrix-algebra session is a different, heavyweight treatment, is
+  *not* part of the Lean green claim, and per `docs/BUILD-STATUS-2026-04-26.adoc`
+  has 16 proof-failure sites across 4 theories. It was *not* runnable in the
+  session that wrote `AFFIRMATION.adoc` (no Isabelle on that toolchain). Exclude it
+  from every green claim.
+* *No production-implementation refinement proof exists.* The proved core is
+  idealised; `impl/` is a single unbuilt Julia file with no build wiring, and the
+  README's `cd impl/ && just build && just test` quickstart is refuted at the
+  affirmed commit. The bridge from "proved calculus" to "checker in use" is
+  largely absent and is not claimed.
+* *The published PDF note is exposition,* not a machine-checked artefact.
