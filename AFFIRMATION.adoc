@@ -1,0 +1,305 @@
+// SPDX-License-Identifier: MPL-2.0
+// SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
+= AFFIRMATION — tropical-resource-typing, as of 2026-06-16
+:toc: macro
+:toclevels: 2
+
+_the No-Bullshit file: what we affirm was true and checkable at this moment_
+
+[NOTE]
+====
+*Genre.* An *affirmation* is a solemn declaration of the truth of a statement,
+made by someone who _declines to swear an oath_. That is exactly what this is:
+our truth-as-best-believed at a stamped instant — binding on our honesty, not a
+claim of infallibility. It is not the README and not the EXPLAINME:
+
+[cols="1,3,2",options="header"]
+|===
+| File | Answers | Tense
+| `README.adoc`    | _Where is this going, and why?_ — steering, intent, the pitch | future / aspirational
+| `EXPLAINME.adoc` | _How is it built, and what's the evidence?_ — engineering underpinnings | descriptive / mechanism
+| *`AFFIRMATION.adoc`* (this file) | _What can we honestly affirm was *true and checkable* at a stamped moment?_ | a frozen instant, falsifiable
+|===
+
+This file is deliberately small, dated, and signed, so a reader can hold us to
+exactly what we affirmed, when we affirmed it.
+====
+
+toc::[]
+
+== What this is, and how it is designed to work
+
+*What it is.* A short, dated, jointly-signed snapshot of what we can _honestly
+and verifiably_ claim about this repo at one exact commit. Nothing here is
+marketing and nothing is a promise about the future — both of those live in the
+README. This file is the receipt.
+
+*How it is designed to work.* Three moving parts make it trustworthy:
+
+. *Ground truth, not memory.* Every claim below was produced by _running the
+  tool in the session that wrote this file_ — `lake build`, a clean rebuild from
+  source, and a `#print axioms` audit. Where a status doc or the repo's own
+  README/EXPLAINME said something the live run contradicts, the live run wins
+  and we flag the contradiction (see <<Companion documents and repo metadata (cross-check)>>).
+. *A frozen anchor.* The file names the exact commit SHA, branch, UTC timestamp,
+  and toolchain (see <<Verifiable anchor>>), so "true" always means "true _at
+  this point_". Move the SHA and the file becomes a draft until re-run.
+. *A real signature.* It is landed by a *signed git commit*; that signature over
+  this content at the anchored SHA is what makes the affirmation tamper-evident
+  and attributable — not the prose alone.
+
+*We are fallible.* We can be wrong, stale, or simply mistaken about our own
+work. This file is our best honest belief, not a proof of its own correctness.
+Treat it as a falsifiable claim, not gospel.
+
+== The epistemic contract (read this before you trust _or_ attack)
+
+This document records our *best joint belief* at the timestamp below. It is
+*not a guarantee of correctness.* We may be wrong. We may be deluded. We may
+have missed something — a hole, a stale doc, a proof that checks an idealised
+core we then fail to match in a wider implementation.
+
+*No intentional overclaim.* That is the only guarantee here: we have not
+_knowingly_ inflated anything. Where something is checked-by-the-Lean-kernel we
+say *proved*; where it is merely written in prose, tested, or argued, we say so;
+where a checker could not run in this environment (Isabelle), we say so and do
+*not* let it ride on the Lean result. If you find an honest claim here that
+turns out false, that is an error to be fixed — not a lie.
+
+*Standing invitation to refute.* You are _invited_ to bulldoze any claim in this
+file. We want that. But the fair form of the attack is:
+
+. Read this file at the stamped commit.
+. Reproduce (or fail to reproduce) the checks in <<reproduce,Reproduce it yourself>>.
+. _Then_ tell us where the discrepancy is, against the artefact as it stood at
+  this moment — so we can either justify it or concede it on the record.
+
+An attack that skips steps 1–2 is attacking a strawman of a different date.
+
+*No fights before the facts are cleared up.* We are not interested in a dispute
+over a claim until the discrepancy has actually been checked against the
+artefact at this commit and we have had the chance to either justify it or
+concede it on the record. Good faith both ways: bring a reproducible
+discrepancy and we will fix the claim, the doc, or the code — promptly and
+without defensiveness. The goal is a corrected record, not a won argument.
+
+== Verifiable anchor
+
+[cols="1,3"]
+|===
+| *Repo*        | `hyperpolymath/tropical-resource-typing`
+| *Branch*      | `docs/proof-trust-audit-2026-06-16`
+| *Commit (HEAD)* | `54290521b7095fc6245f495408e94d6edee89cea`
+| *Permalink*   | https://github.com/hyperpolymath/tropical-resource-typing/tree/54290521b7095fc6245f495408e94d6edee89cea
+| *Verified (UTC)* | 2026-06-16T12:20:35Z
+| *Working-tree delta at verification* | Clean at the point HEAD was captured (`git status --porcelain` empty). The Lean build, clean rebuild, and axiom audit were run against this clean HEAD; the only files written afterward are a temporary axiom-audit probe (created and *deleted* in-session — the tree was clean again before this file) and this `AFFIRMATION.adoc` itself (untracked, parked, not committed). Neither affects the build/proof results below.
+| *Toolchain*   | Lean 4.13.0 (`leanprover/lean4:v4.13.0`, pinned in `lean-toolchain`) · Lake 5.0.0 (`5.0.0-6d22e0e`) · elan 4.2.1 · git 2.43.0 · just 1.50.0. *Mathlib: none* (the Lean library imports `Init` only). *Isabelle: NOT installed in this environment* (so the Isabelle session was not run here — see honest state).
+|===
+
+[IMPORTANT]
+If you are reading this at a _later_ commit, the claims may have drifted.
+Re-run <<reproduce>> and write a fresh affirmation; do not trust a stale one.
+
+== Companion documents and repo metadata (cross-check)
+
+This affirmation should be read against the repo's own public claims. Where they
+drift from what we verified, we say so here rather than quietly leave the reader
+to find out.
+
+* *`README.adoc`* — present. link:README.adoc[_"tropical-resource-typing"_]: a
+  max-plus / tropical approach to resource-aware type systems, with a Lean 4
+  formalisation section. *Verified-true claim:* the README says "`lake build` is
+  green … every headline theorem depends only on `propext` (+ `Quot.sound`) — no
+  `sorry`, no `Classical.choice`." We ran exactly that and it holds (see the
+  honest state). *Stale claim:* the README's "Quickstart (running the reference
+  impl)" says `cd impl/ && just build && just test`. That is **not runnable at
+  this commit** — `impl/` contains only a single Julia file
+  (`impl/tropical/TropicalDeterminant.jl`) and has *no* `Justfile`. Flagged as a
+  README/tree drift, not glossed.
+* *`EXPLAINME.adoc`* — present, but *partly stale at this commit*. It still
+  describes the repo's formal content as `Tropical.thy` (Isabelle) plus
+  `TropicalSessionTypes.lean`, names `tests/validate.test.ts` as "the only
+  executable code", and calls the Isabelle work "Verified against Isabelle
+  2025-1" without noting it is currently *red*. Live state differs: (a) the
+  authoritative verified layer is now the *Lean* `Resource.*` axis + the two root
+  twins, which EXPLAINME does not mention; (b) the Isabelle `Tropical_Semirings`
+  session is known-red (16 proof-failure sites — see `docs/BUILD-STATUS-2026-04-26.adoc`),
+  contradicting EXPLAINME's "Verified" wording; (c) the validation harness is now
+  `tests/validate.test.affine` (+ a Deno `.js` variant), with the original
+  `validate.test.ts` retained alongside as a *legacy* file (not deleted at this
+  commit). Noted as drift to reconcile, owner-gated.
+* *GitHub repo description* — _"A short note introducing a max-plus (tropical)
+  algebraic approach to resource-aware type systems, with applications to
+  worst-case cost analysis and protocol typing."_ Consistent with what we
+  verified; honest framing ("a short note", research-grade). No overclaim found.
+* *GitHub topics* — `formal-methods`, `max-plus`, `research`, `tropical-algebra`,
+  `type-theory`, `resource-types`. Cross-check: all earned. `formal-methods` is
+  now backed by the green, axiom-audited Lean layer below. The topics make *no*
+  Lean/Isabelle-specific claim, so there is nothing there to overclaim.
+
+== The honest state (one breath)
+
+*tropical-resource-typing is a research note whose Lean 4 core is genuinely
+machine-checked: a `lake build` (no Mathlib) builds clean from source and the
+headline theorems pass a `#print axioms` audit depending only on `propext` and
+`Quot.sound` (one of them on no axioms at all) — while the sibling Isabelle/HOL
+`Tropical_Semirings` session is KNOWN-RED (16 proof-failure sites) and was not
+even runnable in this environment, the `impl/` reference checker is a single
+unbuilt Julia file, and the proved Lean calculus is an idealised core, not a
+verified model of any production resource-typing implementation.*
+
+=== What is solid (and how we checked)
+
+* *The Lean library builds clean from source — verified this moment.*
+  `lake clean` then `lake build` exits *0* with "Build completed successfully";
+  *all 20 build steps green* (the two root twins `TropicalSessionTypes` +
+  `TropicalAdapterPath`, and 14 `Resource.*` modules under `Resource/`). The one
+  `info:` line at `TropicalSessionTypes.lean:237` is a `#check
+  (inferInstance : CommSemiring Tropical)` informational print, *not* an error.
+  *HOW-checked:* ran `lake clean && lake build`, exit 0, full from-source rebuild
+  (not a cache replay).
+* *No `sorry` / `admit` / bare `axiom` / `native_decide` anywhere in the Lean
+  sources.* *HOW-checked:* `grep -rn "sorry\|admit\b\|^axiom\|native_decide"`
+  over `Resource.lean`, `Resource/`, `TropicalSessionTypes.lean`,
+  `TropicalAdapterPath.lean` — the only hit is a *comment* in
+  `TropicalAdapterPath.lean` reading "no sorry here".
+* *Axiom audit of the headline theorems — proved, kernel-checked this moment.*
+  Via `lake env lean` over a temporary `#print axioms` probe (created, run, and
+  deleted in-session):
++
+[cols="2,2",options="header"]
+|===
+| Theorem | Axioms it depends on
+| `Hyperpolymath.Tropical.soundness` (static grade = dynamic `Span`) | `[propext]`
+| `Hyperpolymath.Tropical.tropical_grade_le_sequentialTotal` (QTT refinement, `max ≤ sum`) | `[propext, Quot.sound]`
+| `Hyperpolymath.ProtocolSquisher.Tropical.hub_ceiling` (min-max bottleneck no-go corollary) | `[propext]`
+| `Resource.parametric_resource_transport` (parametric transport over `ResourceAlgebra`) | *none — depends on no axioms at all*
+|===
++
+No `Classical.choice`, no `sorryAx`. This *confirms the README's claim* word for
+word. *HOW-checked:* `lake env lean _axiom_audit_tmp.lean`, exit 0; re-run after
+the clean rebuild gave identical output.
+
+=== The honest nuance you must not lose
+
+The Lean proofs establish soundness/refinement properties of *idealised core
+calculi* — speculative session-type grading, an adapter-path bottleneck
+semiring, and an abstract `ResourceAlgebra` interface. They do *not* prove that
+any production resource-typing *implementation* refines those calculi. There is
+no executable checker in this repo wired to these proofs: `impl/` is a single,
+unbuilt `TropicalDeterminant.jl`, and the `tests/` harness validates the PDF
+artefact's structure, not the calculus. "Proved core" + "tested / unbuilt
+implementation" is exactly that — two things, with an unverified (indeed largely
+absent) bridge between them. Anyone reading "the proofs are green" as
+"tropical-resource-typing is a proven-sound type *system in use*" is
+overclaiming. What is proved is the *mathematics of the grading*, green and
+axiom-clean; what is not proved is any compiler or runtime that consumes it.
+
+=== Known-incomplete but honestly fenced (loud failure, never silent)
+
+[WARNING]
+====
+The Isabelle/HOL layer is *red and was not run here.* The
+`Tropical_Semirings` session (`ROOT` + `Tropical*.thy` at repo root) has *16
+proof-failure sites across 4 theories* (Determinants ×7, Kleene ×4,
+Matrices_Full ×4, CNO ×1) plus 10 cosmetic doc-antiquotation sites, per
+`docs/BUILD-STATUS-2026-04-26.adoc`. We could *not* independently re-confirm or
+refute that here: *Isabelle is not installed in this environment*, so
+`just isabelle-build` / `just test` (which target the Isabelle session) cannot
+run. We therefore make *no* green claim about any `.thy` file. The
+`docs/BUILD-STATUS-2026-04-26.adoc` count is the best available record, not a
+this-session result; and note it itself *refutes* EXPLAINME's "Verified against
+Isabelle 2025-1" wording.
+====
+
+=== Outstanding / weak / refuted (no spin)
+
+* *Isabelle session: red (per docs), unverified-here.* See the fenced block
+  above. Not run in this environment; excluded from every green claim.
+* *Reference implementation: effectively absent.* The README's
+  `cd impl/ && just build && just test` does not work at this commit — `impl/`
+  is one Julia file with no build wiring. *Refuted* as a runnable quickstart.
+* *No production-implementation refinement proof exists.* See "honest nuance".
+* *EXPLAINME.adoc is stale* (Isabelle "Verified", `.ts`-only harness, no mention
+  of the authoritative Lean `Resource.*` axis). Correcting it — and the
+  `impl/` quickstart in the README — is owner-gated work, not done here.
+* *The PDF (`Tropical Resource Typing For Protocols.pdf`) is an informal theory
+  document*, not a machine-checked artefact; treat it as exposition.
+
+== Reproduce it yourself
+
+From the repo root, at the commit in <<Verifiable anchor>>, with Lean 4.13.0
+(elan will fetch it from `lean-toolchain`):
+
+[source,sh]
+----
+# 1. Clean, from-source build of the Lean library (no Mathlib, no network deps):
+lake clean
+lake build
+# expect: exit 0, "Build completed successfully.", 20 steps green.
+# One informational line is expected and is NOT an error:
+#   info: TropicalSessionTypes.lean:237:0: inferInstance : CommSemiring Tropical
+
+# 2. Confirm no cheating in the Lean sources (expect only a comment hit):
+grep -rn 'sorry\|admit\b\|^axiom\|native_decide' \
+  Resource.lean Resource/ TropicalSessionTypes.lean TropicalAdapterPath.lean
+
+# 3. Axiom audit of the headline theorems:
+cat > _axiom_audit_tmp.lean <<'EOF'
+import TropicalSessionTypes
+import TropicalAdapterPath
+import Resource
+#print axioms Hyperpolymath.Tropical.soundness
+#print axioms Hyperpolymath.Tropical.tropical_grade_le_sequentialTotal
+#print axioms Hyperpolymath.ProtocolSquisher.Tropical.hub_ceiling
+#print axioms Resource.parametric_resource_transport
+EOF
+lake env lean _axiom_audit_tmp.lean
+rm -f _axiom_audit_tmp.lean
+# expect exactly:
+#   'soundness' depends on axioms: [propext]
+#   'tropical_grade_le_sequentialTotal' depends on axioms: [propext, Quot.sound]
+#   'hub_ceiling' depends on axioms: [propext]
+#   'parametric_resource_transport' does not depend on any axioms
+----
+
+The Isabelle layer is *not* part of this green claim. If you have Isabelle 2025-1
+installed you may run `just isabelle-build` (= `just test`), but per
+`docs/BUILD-STATUS-2026-04-26.adoc` expect it to be *red* (16 proof-failure
+sites); it was *not* run in the session that wrote this file.
+
+== One-line characterisation (quote this)
+
+[quote]
+____
+"A research note whose *Lean 4 core is genuinely machine-checked* — `lake build`
+green from source, no Mathlib, headline theorems axiom-audited to `propext` /
+`Quot.sound` only (one on no axioms) — sitting beside a *known-red, not-run-here
+Isabelle/HOL session* and an essentially-absent reference implementation; a
+proved idealised *calculus*, not a verified production type system. Serious
+formal-foundations artifact, not a finished tool. No intentional overclaim."
+____
+
+== Joint attestation
+
+We, the undersigned, assert that *to the best of our joint belief at the
+timestamp above, every claim in this file is true and was checked as described*
+— with no intentional overclaim, and with the open gaps stated rather than
+hidden.
+
+* *Engineering party (AI):* Claude Opus 4.8 (`claude-opus-4-8[1m]`) — ran the
+  build, clean rebuild, and `#print axioms` proof checks recorded here on
+  2026-06-16T12:20:35Z and stands behind the wording above as a faithful report
+  of those runs.
+* *Owner / maintainer:* Jonathan D.A. Jewell — _signs by committing this file
+  with `-S` (`id_ed25519_signing`); the git commit signature over this content,
+  at the commit SHA recorded above, is the cryptographic form of this
+  affirmation._
++
+Signed-off-date: ____________________  (fill on signing)
+
+[TIP]
+The authoritative, tamper-evident signature is the *signed git commit* that
+lands this file. If the SHA in <<Verifiable anchor>> matches the parent of that
+commit and the commit verifies, this affirmation is anchored. If they don't
+match, treat the file as a draft.
