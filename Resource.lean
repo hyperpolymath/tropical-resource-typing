@@ -13,6 +13,7 @@ import Resource.Stress
 import Resource.EchoBridge
 import Resource.Conformance
 import Resource.Bridge
+import Resource.Closure
 
 /-!
   # `Resource` — the resource-grade axis (aggregator)
@@ -53,4 +54,11 @@ import Resource.Bridge
   * `Resource.Bridge`     — the two original twins (`TropicalSessionTypes`,
                             `TropicalAdapterPath`) exhibited as instances of this
                             axis (QTT refinement and `hub_ceiling` restated in `⊑`).
+  * `Resource.Closure`    — the Kleene / Floyd–Warshall all-pairs **closure**
+                            layer (`Mat`, `matMul`, `matStar`), parametric over
+                            `ResourceAlgebra`; instantiates at `MinPlus`
+                            (all-pairs shortest path) and `MinMax` (all-pairs
+                            bottleneck).  The `EntryBounded` / `AllPairsCosts`
+                            certificate and `matStar` monotonicity mirror
+                            `typed-wasm`'s Idris `Tropical.idr` onto the axis.
 -/
