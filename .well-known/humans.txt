@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MPL-2.0
+# humanstxt.org — the humans responsible for this repository.
+
+/* TEAM */
+  Maintainer: Jonathan D.A. Jewell
+  Contact: 6759885+hyperpolymath [at] users.noreply.github.com
+  Site: https://github.com/hyperpolymath
+
+/* SITE */
+  Project: tropical-resource-typing — formal proofs of tropical / resource
+           semirings (max-plus, min-max, min-plus, …) and resource-grade
+           transport, dual-formalised in Lean 4 and Isabelle/HOL.
+  Provers: Lean 4 (v4.13.0, no Mathlib) + Isabelle/HOL (Tropical_Semirings session)
+  Licence: MPL-2.0 — see LICENSE

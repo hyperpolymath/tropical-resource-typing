@@ -1,0 +1,22 @@
+<!-- SPDX-License-Identifier: MPL-2.0 -->
+= Maintainers
+
+== Maintainers
+
+|===
+| Name | GitHub | Areas
+
+| Jonathan D.A. Jewell
+| @hyperpolymath
+| All — Lean proofs (`Resource/`, `Tropical*.lean`), Isabelle theories (`*.thy`), build tooling, governance
+|===
+
+Contact: `j.d.a.jewell@open.ac.uk` (see `SECURITY.md` for vulnerability reporting).
+
+== Review policy
+
+* At least one maintainer review before merge to `main`.
+* Lean proof changes must `lake build` cleanly (toolchain pinned in
+  `lean-toolchain`); Isabelle theory changes must pass `just isabelle-build`
+  (the `Tropical_Semirings` session). Proofs are load-bearing — a red build
+  blocks merge, and `just check-sorry` must report zero placeholders.

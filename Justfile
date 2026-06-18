@@ -3,6 +3,14 @@
 default:
     @just --list
 
+# Type-check all Lean proofs (toolchain pinned in lean-toolchain).
+lean-build:
+    @lake build
+
+# Aggregate compliance gate: Lean proofs type-check + no sorry placeholders.
+validate: lean-build check-sorry
+    @echo "validate: Lean proofs type-check + no sorry placeholders"
+
 # Run the primary proof check.
 test:
     @just isabelle-build
