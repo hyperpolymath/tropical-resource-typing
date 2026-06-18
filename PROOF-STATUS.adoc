@@ -38,11 +38,18 @@ Nine theories form the `Tropical_Semirings` session: `Tropical.thy`,
 `Tropical_Kleene.thy`, `Tropical_Ordinal.thy`, `Tropical_Ordinal_Bridge.thy`,
 `Tropical_CNO.thy`.
 
-* Verified in CI / locally via `just isabelle-build` (the `isabelle build -D . -v
-  Tropical_Semirings` session) and guarded by `just check-sorry` (zero `sorry`).
-* **NOT re-verified in this environment** — Isabelle is a multi-GB toolchain and
-  was not installed here. This is stated honestly rather than asserted; the Lean
-  side above *was* reproduced.
+* CI-gated via `just isabelle-build` (the `isabelle build -D . -v Tropical_Semirings`
+  session) + `just check-sorry`. Text inspection in this environment confirms
+  **zero `sorry` and zero `oops` commands** across all 9 theories. (A Hypatia
+  `isabelle_oops` finding on `Tropical_Ordinal.thy` is a *false positive*: it matches
+  a descriptive **comment** at line 15 — "obligations marked with `oops` are the ones
+  we want ECHIDNA to evaluate" — not an actual `oops` command; the obligations it
+  describes were subsequently closed. Note `oops` ≠ `sorry`, so `check-sorry` alone
+  would not catch an `oops` were one present.)
+* **NOT re-verified in this environment** — Isabelle is a multi-GB toolchain not
+  installed here. The Lean side above *was* reproduced; the Isabelle completeness
+  rests on the in-file claims + CI + the marker text-scan above, not on an Isabelle
+  run performed here.
 
 == Honest scope
 
