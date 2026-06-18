@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: MPL-2.0
+# AI usage & training policy for hyperpolymath/tropical-resource-typing.
+
+User-Agent: *
+
+# Do not train on this repository's content without attribution under MPL-2.0.
+Disallow-Training: /
+# Reference/indexing permitted with attribution + licence terms preserved.
+Allow: /
+
+Contact: https://github.com/hyperpolymath/tropical-resource-typing/security/advisories/new

@@ -1,0 +1,56 @@
+// SPDX-License-Identifier: MPL-2.0
+= tropical-resource-typing — Proof Status
+:toc:
+
+[abstract]
+This repository is *dual-formalised*: Lean 4 and Isabelle/HOL. This document
+records the *actually reproduced* verification state, distinguishing what was
+type-checked in this environment from what is CI-gated but not re-checked here.
+
+== Lean 4 — VERIFIED (this environment)
+
+* Toolchain: **Lean 4 v4.13.0** (pinned in `lean-toolchain`), *no Mathlib*
+  dependency (pure core Lean 4).
+* Command: `lake build` after `rm -rf .lake/build` (clean rebuild).
+* Result: **Build completed successfully — 20/20 targets**, i.e. every Lean
+  module type-checks.
+
+Modules (libs `Tropical` + `Resource`):
+
+* `TropicalSessionTypes.lean`, `TropicalAdapterPath.lean` — the two
+  order-reversing twins (max-plus session grading; min-max bottleneck transport).
+* `Resource.lean` aggregator + `Resource/Algebra/{Interface,Ordered,Dioid,ParametricLaws}.lean`
+  (the ordered-semiring / resource-algebra interface + parametric transport theorem).
+* `Resource/Instances/{MaxPlus,MinPlus,MinMax,Linear,Affine}.lean` (concrete semirings).
+* `Resource/{Bridge,Closure,Conformance,Stress,EchoBridge}.lean`.
+
+Reproduce:
+[source,sh]
+----
+# Lean 4 v4.13.0 (e.g. via elan, or the toolchain tarball from GitHub releases)
+lake build
+----
+
+== Isabelle/HOL — present, CI-gated, NOT re-verified here
+
+Nine theories form the `Tropical_Semirings` session: `Tropical.thy`,
+`Tropical_v2.thy`, `Tropical_Matrices_{Clean,Full}.thy`, `Tropical_Determinants.thy`,
+`Tropical_Kleene.thy`, `Tropical_Ordinal.thy`, `Tropical_Ordinal_Bridge.thy`,
+`Tropical_CNO.thy`.
+
+* Verified in CI / locally via `just isabelle-build` (the `isabelle build -D . -v
+  Tropical_Semirings` session) and guarded by `just check-sorry` (zero `sorry`).
+* **NOT re-verified in this environment** — Isabelle is a multi-GB toolchain and
+  was not installed here. This is stated honestly rather than asserted; the Lean
+  side above *was* reproduced.
+
+== Honest scope
+
+* The Lean result is a genuine, reproduced `lake build` (not a "looks fine"
+  reading of in-file comments).
+* The two formalisations are intended to agree on the tropical/resource-semiring
+  laws (max-plus, min-plus, min-max, linear, affine) and the transport theorem;
+  cross-prover *equivalence* is not mechanically established — each prover checks
+  its own development.
+* `Resource/EchoBridge.lean` is an echo-free residue-measure bridge (no dependency
+  on the `echo-types` Agda kernel; the relationship is at the design level).

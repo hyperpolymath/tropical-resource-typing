@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: MPL-2.0
+# RFC 9116 security contact for hyperpolymath/tropical-resource-typing.
+Contact: https://github.com/hyperpolymath/tropical-resource-typing/security/advisories/new
+Contact: mailto:6759885+hyperpolymath@users.noreply.github.com
+Expires: 2027-06-18T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://github.com/hyperpolymath/tropical-resource-typing/blob/main/.well-known/security.txt
+Policy: https://github.com/hyperpolymath/tropical-resource-typing/blob/main/SECURITY.md

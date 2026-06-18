@@ -12,6 +12,16 @@ Contributions are welcome! Please:
 
 This project follows the [Rhodium Standard Repository (RSR)](https://github.com/hyperpolymath/standards) conventions.
 
+## Contribution model — Tri-Perimeter Contribution Framework (TPCF)
+
+This repo follows the estate-wide **Tri-Perimeter Contribution Framework (TPCF)** — graduated trust without gatekeeping:
+
+- **Perimeter 1 — Core Systems (maintainers only).** The proof kernel: the Lean `Resource/` axis + `Tropical*.lean`, the Isabelle `*.thy` theories, and the build/CI tooling. Direct commits by maintainers only (see `MAINTAINERS.adoc`).
+- **Perimeter 2 — Expert Extensions (trusted contributors).** New semiring instances, lemmas, and transport theorems. Apply via issue → review → merge, with `lake build` (Lean) / `just isabelle-build` (Isabelle) green.
+- **Perimeter 3 — Community Sandbox (open to all).** Docs (`.adoc`), `.well-known/`, and spec proposals.
+
+The fork-and-PR workflow above applies to all three perimeters; proofs must type-check and `just check-sorry` must be clean before review.
+
 ## License
 
 By contributing, you agree that your contributions will be licensed under MPL-2.0 (with MPL-2.0 as automatic legal fallback).

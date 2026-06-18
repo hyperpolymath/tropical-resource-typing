@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: MPL-2.0
+* text=auto eol=lf
+*.lean   text
+*.thy    text
+*.md     text
+*.adoc   text
+*.nix    text
+*.lock   text -diff
