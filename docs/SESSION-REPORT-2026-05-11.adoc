@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: CC-BY-SA-4.0
 = Tropical_Semirings — Session Report 2026-05-11
 Claude claude-sonnet-4-6 (Claude Code)
 v1.0, 2026-05-11
