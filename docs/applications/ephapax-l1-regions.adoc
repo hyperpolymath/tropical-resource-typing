@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: CC-BY-SA-4.0
 // Owner: Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 = Application: tropical resource grades dissolving real proof-debt in ephapax's L1 region calculus
 :toc: left

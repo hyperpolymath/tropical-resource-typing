@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: CC-BY-SA-4.0
 = Swarm Dogfood Session — 2026-04-26 (afternoon)
 Jonathan D.A. Jewell (hyperpolymath)
 v1.0, 2026-04-26

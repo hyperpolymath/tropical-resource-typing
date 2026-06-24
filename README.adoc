@@ -2,7 +2,7 @@
 :toc: preamble
 :icons: font
 :revdate: 2026-05-26
-// SPDX-License-Identifier: MPL-2.0
+// SPDX-License-Identifier: CC-BY-SA-4.0
 // SPDX-FileCopyrightText: 2026 Jonathan D.A. Jewell <j.d.a.jewell@open.ac.uk>
 
 A short technical note introducing a **max-plus (tropical) algebraic
